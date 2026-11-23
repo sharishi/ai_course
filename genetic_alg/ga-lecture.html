@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Генетический алгоритм: интерактивная лекция</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Plan: лабораторный журнал. Холодная бумага, кобальт = «родитель A / ген 1», оранжевый = «родитель B».
+   Одна колонка ~860px, липкая навигация сверху, интерактивные «стенды» в рамках. */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --surface-2:#eceee9; --ink:#1b2230; --muted:#5b6474; --rule:#d6dad2;
+  --accent:#2b50c8; --accent-2:#dd6326; --s3:#a77a06;
+  --good:#2b8a47; --bad:#b3261e; --good-bg:#e5f3e8; --bad-bg:#f8e4e2;
+  --font-display:"Unbounded", "Segoe UI", system-ui, sans-serif;
+  --font-body:"IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141a; --surface:#191e26; --surface-2:#212732; --ink:#e6e9ef; --muted:#9aa3b3; --rule:#2d3440;
+    --accent:#7d9bff; --accent-2:#ff9a5c; --s3:#e3b341;
+    --good:#5cc27a; --bad:#ff7a70; --good-bg:#1b3324; --bad-bg:#3a1f1f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141a; --surface:#191e26; --surface-2:#212732; --ink:#e6e9ef; --muted:#9aa3b3; --rule:#2d3440;
+  --accent:#7d9bff; --accent-2:#ff9a5c; --s3:#e3b341;
+  --good:#5cc27a; --bad:#ff7a70; --good-bg:#1b3324; --bad-bg:#3a1f1f;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto} *{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.6}
+a{color:var(--accent)}
+h1,h2,h3{text-wrap:balance;line-height:1.2}
+h1{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,5vw,44px);margin:0 0 12px;letter-spacing:-.01em}
+h2{font-family:var(--font-display);font-weight:500;font-size:clamp(22px,3.4vw,28px);margin:0 0 14px}
+h3{font-size:19px;font-weight:600;margin:24px 0 8px}
+p{margin:0 0 12px;max-width:68ch}
+code,.mono{font-family:var(--font-mono);font-size:.92em}
+.num{font-variant-numeric:tabular-nums}
+
+/* nav */
+.topbar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.topbar-in{max-width:1100px;margin:0 auto;padding:8px 16px;display:flex;gap:12px;align-items:center}
+.toc{display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin;flex:1}
+.toc a{white-space:nowrap;text-decoration:none;color:var(--muted);font-size:14px;padding:5px 10px;border-radius:999px}
+.toc a:hover,.toc a.on{color:var(--ink);background:var(--surface-2)}
+.score{white-space:nowrap;font-size:14px;font-family:var(--font-mono);background:var(--surface);border:1px solid var(--rule);padding:4px 10px;border-radius:999px}
+.score b{color:var(--good)}
+.progress{height:3px;background:var(--accent);width:0;transition:width .1s}
+
+main{max-width:880px;margin:0 auto;padding:0 16px 80px}
+section{padding:48px 0 8px;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+.eyebrow{font-family:var(--font-mono);font-size:13px;color:var(--accent);letter-spacing:.04em;margin-bottom:6px}
+.lead{font-size:19px;color:var(--ink)}
+.muted{color:var(--muted)}
+
+/* hero */
+.hero{padding:40px 0 24px}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:20px}
+.hero canvas{width:100%;height:240px;display:block}
+.hero-cap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;color:var(--muted);font-family:var(--font-mono)}
+
+/* stand = interactive block */
+.stand{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:18px;margin:18px 0}
+.stand-title{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin:0 0 12px;display:flex;gap:8px;align-items:center}
+.stand-title::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+canvas.plot{width:100%;height:220px;display:block}
+
+/* bits */
+.bits{display:inline-flex;gap:4px;vertical-align:middle}
+.bit{width:40px;height:46px;border:2px solid var(--accent);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:600;font-size:20px;color:var(--accent);background:transparent;position:relative;user-select:none}
+.bit.one{background:var(--accent);color:var(--surface)}
+.bit.b{border-color:var(--accent-2);color:var(--accent-2)}
+.bit.b.one{background:var(--accent-2);color:var(--surface)}
+.bit.sm{width:24px;height:28px;font-size:14px;border-width:1.5px;border-radius:4px}
+button.bit{cursor:pointer}
+button.bit:hover{transform:translateY(-1px)}
+.bit .idx{position:absolute;top:-18px;font-size:11px;color:var(--muted);font-weight:400}
+.bit.flash{animation:flash .9s ease}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--bad)}30%{box-shadow:0 0 0 6px color-mix(in srgb,var(--bad) 40%,transparent);transform:scale(1.12)}100%{box-shadow:0 0 0 0 transparent}}
+.bit.pop{animation:popin .45s ease both}
+@keyframes popin{from{opacity:0;transform:translateY(-14px) scale(.8)}to{opacity:1;transform:none}}
+.cutline{width:3px;align-self:stretch;background:var(--ink);border-radius:2px;margin:0 3px}
+
+/* controls */
+button.btn{font:inherit;font-size:15px;padding:8px 14px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:var(--surface);cursor:pointer;font-weight:500}
+button.btn.ghost{background:transparent;color:var(--accent)}
+button.btn:hover{filter:brightness(1.08)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+label.ctl{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);min-width:120px}
+label.ctl input[type=number],label.ctl select,input.txt{font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink);font-family:var(--font-mono)}
+input[type=range]{accent-color:var(--accent);width:180px}
+.kv{font-family:var(--font-mono);font-size:15px}
+.formula{font-family:var(--font-mono);background:var(--surface-2);padding:10px 14px;border-radius:8px;display:inline-block;margin:6px 0 12px;font-size:15px}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 10px;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:13px;background:var(--surface-2);position:sticky;top:0}
+tr.hl td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+tr.genstart td{border-top:2px solid var(--rule)}
+td.r,th.r{text-align:right}
+
+/* tiles 16 */
+.tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:12px}
+@media (max-width:600px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{font:inherit;border:1px solid var(--rule);background:var(--bg);border-radius:6px;padding:6px 4px;text-align:center;cursor:pointer;color:var(--ink);font-size:12.5px;line-height:1.35}
+.tile .tb{font-family:var(--font-mono);font-weight:600;font-size:14px}
+.tile.cur{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tile.top .tb::after{content:" ★";color:var(--s3)}
+
+/* quiz */
+.quiz{border:1px solid var(--rule);border-left:4px solid var(--accent-2);border-radius:8px;padding:14px 16px;margin:18px 0;background:var(--surface)}
+.quiz .qh{font-family:var(--font-mono);font-size:12.5px;color:var(--accent-2);margin-bottom:4px}
+.quiz .q{font-weight:600;margin-bottom:10px}
+.opts{display:grid;gap:8px}
+.opts button{font:inherit;text-align:left;padding:8px 12px;border:1px solid var(--rule);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button.right{background:var(--good-bg);border-color:var(--good)}
+.opts button.wrong{background:var(--bad-bg);border-color:var(--bad)}
+.opts button:disabled{cursor:default}
+.ex{display:none;margin-top:10px;font-size:15.5px;padding:10px 12px;border-radius:7px;background:var(--surface-2)}
+.ex.show{display:block}
+.ex b.ok{color:var(--good)} .ex b.no{color:var(--bad)}
+
+/* think box */
+details.think{border:1px dashed var(--rule);border-radius:8px;padding:12px 16px;margin:16px 0;background:var(--surface)}
+details.think summary{cursor:pointer;font-weight:600}
+details.think summary::marker{color:var(--accent)}
+details.think p{margin-top:10px}
+
+/* stepper */
+.steps-nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.steps-nav button{font:inherit;font-size:13.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--rule);background:var(--bg);color:var(--muted);cursor:pointer}
+.steps-nav button.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.steps-nav button.done{color:var(--ink)}
+.step{display:none}
+.step.show{display:block;animation:fadein .35s ease}
+.all-steps .step{display:block;border-top:1px solid var(--rule);padding-top:12px;margin-top:12px}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.why{border-left:3px solid var(--accent);padding:6px 12px;background:var(--surface-2);border-radius:0 6px 6px 0;font-size:15.5px;margin:10px 0}
+.why b{color:var(--accent)}
+
+/* log */
+pre.log{background:var(--surface-2);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:13px;line-height:1.5;max-height:460px;overflow:auto;white-space:pre;margin:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule);margin:16px 0 12px;flex-wrap:wrap}
+.tabs button{font:inherit;font-size:14.5px;border:0;background:none;color:var(--muted);padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpane{display:none}.tabpane.on{display:block}
+.tbl-scroll{max-height:460px;overflow:auto;border:1px solid var(--rule);border-radius:8px}
+
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.result div{background:var(--surface-2);border-radius:8px;padding:10px 12px}
+.result .k{font-size:12.5px;color:var(--muted)}
+.result .v{font-family:var(--font-mono);font-size:19px;font-weight:600}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:13px;font-family:var(--font-mono);background:var(--surface-2)}
+.chip.good{background:var(--good-bg);color:var(--good)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
+.terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.term{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 14px}
+.term b{display:block;font-size:15px}
+.term span{font-size:14.5px;color:var(--muted)}
+.term .bio{font-size:13px;color:var(--accent-2);font-family:var(--font-mono)}
+ol.cycle{counter-reset:c;list-style:none;padding:0;display:grid;gap:8px}
+ol.cycle li{counter-increment:c;display:flex;gap:12px;align-items:flex-start}
+ol.cycle li::before{content:counter(c);font-family:var(--font-mono);font-weight:600;color:var(--surface);background:var(--accent);border-radius:50%;width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:2px}
+pre.code{background:var(--surface-2);padding:14px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.5}
+.answer-in{width:90px}
+.fb{font-size:15px;margin-left:8px}
+.fb.ok{color:var(--good)} .fb.no{color:var(--bad)}
+.pairrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--rule)}
+.pairrow .lbl{font-family:var(--font-mono);font-size:13px;color:var(--muted);min-width:64px}
+.pairrow .op{font-size:14px;color:var(--muted)}
+.chrom{display:inline-flex;gap:3px;align-items:center;white-space:nowrap}
+#frPop th,#frPop td{padding:5px 7px}
+.bit.mut{box-shadow:0 0 0 2px var(--bad);}
+.rbar{position:relative;display:flex;height:40px;border-radius:6px}
+.rbar .seg{height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-mono);font-size:12.5px;font-weight:600;overflow:hidden;white-space:nowrap}
+.rbar .seg:first-child{border-radius:6px 0 0 6px}.rbar .seg:last-of-type{border-radius:0 6px 6px 0}
+.rmark{position:absolute;top:-10px;bottom:-10px;width:3px;margin-left:-1.5px;background:var(--ink);border-radius:2px;transition:left .5s ease}
+.rmark span{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:12px;white-space:nowrap;color:var(--ink);font-weight:600}
+.rscale{position:relative;height:22px;margin-top:4px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+.rscale span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.rscale span:first-child{transform:none}.rscale span:last-child{transform:translateX(-100%)}
+.thm{border:1px solid var(--rule);border-left:4px solid var(--s3);background:var(--surface);border-radius:8px;padding:12px 16px;margin:16px 0}
+.thm .th{font-family:var(--font-mono);font-size:12.5px;color:var(--s3);margin-bottom:6px}
+.thm p{margin:0 0 8px}
+.final-score{font-family:var(--font-display);font-size:22px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-in">
+    <nav class="toc" id="toc">
+      <a href="#intro">Введение</a>
+      <a href="#why">Зачем это нужно</a>
+      <a href="#task">Что ищем</a>
+      <a href="#terms">Словарь</a>
+      <a href="#coding">Кодирование</a>
+      <a href="#selection">Селекция</a>
+      <a href="#crossover">Кроссовер</a>
+      <a href="#mutation">Мутация</a>
+      <a href="#example">Пример с решением</a>
+      <a href="#fullrun">Полный проход</a>
+      <a href="#sim">Симулятор</a>
+      <a href="#experiments">Эксперименты</a>
+      <a href="#test">Контрольная</a>
+    </nav>
+    <div class="score" title="Правильные ответы во всех тестах лекции">✓ <b id="scoreOk">0</b>/<span id="scoreAll">0</span></div>
+  </div>
+  <div class="progress" id="progress"></div>
+</div>
+
+<main>
+<!-- ============ INTRO ============ -->
+<section id="intro" class="hero">
+  <div class="eyebrow">Лекция · Эволюционная оптимизация</div>
+  <h1>Генетический алгоритм: как эволюция ищет максимум функции</h1>
+  <p class="lead">Представьте селекционера, который хочет вывести самый высокий подсолнух. Формулы, по которой можно рассчитать «идеальное семечко», у него нет. Он сажает много разных семян, ждёт, пока они вырастут, и оставляет на развод самые высокие растения. Их пыльца смешивается, а иногда у растения появляется случайное новое свойство. Через несколько сезонов подсолнухи заметно подрастают, хотя селекционер ни разу не решал никаких уравнений.</p>
+  <p>Генетический алгоритм (ГА) переносит эту идею в программирование. Вместо подсолнухов у нас варианты решения задачи, в нашем примере это числа <var>x</var>. Вместо высоты растения у нас оценка варианта, значение функции <var>f(x)</var>. Алгоритму не нужна производная и даже сама формула функции. Ему достаточно уметь спросить: «насколько хорош вот этот вариант?»</p>
+  <div class="stand">
+    <div class="stand-title">Живая демонстрация: популяция из 6 особей ищет максимум f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1</div>
+    <canvas id="heroCanvas" aria-label="Анимация: точки-особи перемещаются по графику функции к её максимуму"></canvas>
+    <div class="hero-cap"><span id="heroGen">Поколение 1</span><span id="heroBest">лучший f = —</span><button class="btn ghost" id="heroRestart" type="button">Новая популяция</button></div>
+  </div>
+  <p>Каждая цветная точка на графике — одна особь, то есть одно решение-кандидат. Серые точки показывают все 16 значений <var>x</var>, которые можно записать четырьмя битами. Поколение за поколением особи собираются около самой высокой точки. Сегодня разберём, почему так происходит.</p>
+  <h3>План лекции</h3>
+  <ol class="cycle">
+    <li><span><b>Зачем это нужно.</b> Какие задачи так решают и почему простые способы не подходят.</span></li>
+    <li><span><b>Постановка задачи.</b> Что именно ищем, что считается ответом и сколько проходов делает алгоритм.</span></li>
+    <li><span><b>Кодирование.</b> Как превратить число в хромосому из битов и обратно.</span></li>
+    <li><span><b>Селекция, кроссовер, мутация.</b> Три «эволюционных» действия, из которых состоит алгоритм.</span></li>
+    <li><span><b>Пример с решением.</b> Один проход вручную по формулам, шаг за шагом, потом все 30 поколений.</span></li>
+    <li><span><b>Симулятор и эксперименты.</b> Как параметры <var>p<sub>c</sub></var>, <var>p<sub>m</sub></var> и <var>N</var> влияют на результат.</span></li>
+  </ol>
+</section>
+
+<!-- ============ WHY ============ -->
+<section id="why">
+  <div class="eyebrow">§0 · Зачем это нужно</div>
+  <h2>Задача оптимизации: найти лучший вариант среди огромного числа возможных</h2>
+  <p><b>Оптимизация</b> — это поиск варианта, при котором какая-то оценка получается самой большой (или самой маленькой). Мы решаем такие задачи постоянно, просто не называем их так. Вот несколько примеров.</p>
+  <div class="terms">
+    <div class="term"><div class="bio">кухня</div><b>Рецепт пиццы</b><span>Подбираем количество соли, сахара, дрожжей и время выпекания. Оценка — баллы дегустаторов. Формулы вкуса нет: вариант можно только испечь и попробовать.</span></div>
+    <div class="term"><div class="bio">университет</div><b>Расписание занятий</b><span>Какая пара, в какой аудитории и в какое время. Оценка — число накладок (её минимизируем). Вариантов астрономически много.</span></div>
+    <div class="term"><div class="bio">логистика</div><b>Маршрут курьера</b><span>В каком порядке объехать 20 адресов. Оценка — длина пути. Возможных порядков 20! ≈ 2.4·10<sup>18</sup>.</span></div>
+    <div class="term"><div class="bio">машинное обучение</div><b>Настройка модели</b><span>Скорость обучения, глубина деревьев, число слоёв. Оценка — точность на проверочных данных. Одна проверка — это целое обучение модели.</span></div>
+    <div class="term"><div class="bio">инженерия</div><b>Антенна спутника</b><span>В миссии NASA Space Technology 5 (2006) форму антенны подобрал эволюционный алгоритм. Получилась причудливо изогнутая проволока, которая удовлетворяла требованиям миссии.</span></div>
+    <div class="term"><div class="bio">игры</div><b>Поведение бота</b><span>Насколько агрессивно атаковать, когда отступать. Оценка — доля выигранных партий.</span></div>
+  </div>
+  <h3>Что общего у этих задач</h3>
+  <ol class="cycle">
+    <li><span><b>Вариант можно записать</b> набором чисел или символов. Это будущая «хромосома».</span></li>
+    <li><span><b>Каждый вариант можно оценить</b> одним числом: насколько он хорош. Это наша функция <var>f</var>, в ГА её называют <i>fitness</i>, «приспособленность».</span></li>
+    <li><span><b>Готовой формулы ответа нет.</b> Нельзя взять производную и решить уравнение. Можно только пробовать варианты и смотреть на оценку. Такую функцию называют «чёрным ящиком».</span></li>
+  </ol>
+
+  <h3>Способ 1: перебрать все варианты</h3>
+  <p>Самый честный способ — проверить все варианты подряд и взять лучший. Это называют <b>полным перебором</b>. Он всегда находит правильный ответ, но есть проблема: число вариантов растёт очень быстро. Каждый добавленный бит удваивает работу. Подвигайте ползунок и посмотрите сами.</p>
+  <div class="stand">
+    <div class="stand-title">Стенд: сколько времени займёт полный перебор</div>
+    <div class="row">
+      <label class="ctl" for="bfL" style="flex-direction:row;align-items:center;gap:10px">Длина хромосомы L = <b class="kv" id="bfLv">4</b> бит<input type="range" id="bfL" min="4" max="64" value="4"></label>
+    </div>
+    <div class="result" id="bfOut"></div>
+    <p class="muted" style="font-size:14.5px;margin:0">Считаем, что одна проверка варианта занимает 1 миллисекунду. Для настройки нейросети одна проверка может занимать часы.</p>
+  </div>
+  <p>Для наглядности дальше возьмём L = 4: тогда перебор занимает 16 миллисекунд. Задача специально взята маленькой: ответ ГА можно проверить перебором и убедиться, что алгоритм работает. В настоящих задачах такой проверки уже не будет.</p>
+
+  <h3>Способ 2: шагать туда, где лучше</h3>
+  <p>Второй естественный способ — начать с какой-то точки и каждый раз делать шаг в ту сторону, где оценка выше. Представьте туриста в густом тумане среди холмов. Он видит только землю под ногами и хочет подняться на самую высокую вершину. Он делает шаг туда, где выше, потом ещё один. Когда во все стороны начинается спуск, он решает, что дошёл до вершины. Но это может быть небольшой холм, а настоящая гора стоит рядом, за долиной.</p>
+  <div class="stand">
+    <div class="stand-title">Стенд: «турист в тумане» на функции варианта 1</div>
+    <canvas class="plot" id="hcPlot" aria-label="Путь туриста по графику функции"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" type="button" id="hcStart">Поставить туриста в случайную точку</button>
+      <button class="btn ghost" type="button" id="hcAll">Проверить все 16 стартов</button>
+    </div>
+    <p id="hcOut" style="margin:12px 0 0">Турист стоит на одной из 16 точек сетки и может шагнуть только к соседней точке слева или справа.</p>
+  </div>
+  <p>Такая «ложная вершина» называется <b>локальным максимумом</b>: она лучше всех соседей, но не лучше всех вообще. Самая высокая точка на всей области называется <b>глобальным максимумом</b>. Именно её мы и ищем.</p>
+  <div class="why"><b>Как генетический алгоритм обходит эту ловушку.</b> Во-первых, он ищет не одной точкой, а сразу группой точек (популяцией) в разных местах, как отряд туристов, разбросанных по местности. Во-вторых, он комбинирует удачные решения (кроссовер) и может «перепрыгнуть» через долину. В-третьих, он иногда делает случайные шаги (мутация), чтобы не застрять навсегда.</div>
+
+  <h3>Словарь селекционера и словарь программиста</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>У селекционера</th><th>В генетическом алгоритме</th><th>В нашем примере</th></tr>
+    <tr><td>Растение</td><td>Особь</td><td>Одна хромосома, например <code>0110</code></td></tr>
+    <tr><td>Набор генов растения</td><td>Хромосома</td><td>Строка из 4 битов</td></tr>
+    <tr><td>Высота подсолнуха</td><td>Fitness, приспособленность</td><td>Значение f(x)</td></tr>
+    <tr><td>Все растения на поле</td><td>Популяция</td><td>N хромосом</td></tr>
+    <tr><td>Оставить на развод высоких</td><td>Селекция</td><td>Отбор пропорционально f(x)</td></tr>
+    <tr><td>Опыление одного растения пыльцой другого</td><td>Кроссовер</td><td>Обмен частями строк</td></tr>
+    <tr><td>Случайное новое свойство</td><td>Мутация</td><td>Инверсия бита</td></tr>
+    <tr><td>Один сезон</td><td>Поколение</td><td>Один шаг цикла, всего G</td></tr>
+  </table></div>
+
+  <div class="quiz" data-answer="b">
+    <div class="qh">Мини-тест 0.1</div>
+    <div class="q">В чём главная слабость способа «шагать туда, где лучше»?</div>
+    <div class="opts">
+      <button type="button" data-k="a">Он слишком медленный</button>
+      <button type="button" data-k="b">Он может остановиться на локальном максимуме и не найти глобальный</button>
+      <button type="button" data-k="c">Ему нужна формула функции</button>
+      <button type="button" data-k="d">Он не работает с двоичными числами</button>
+    </div>
+    <div class="ex">Турист видит только соседние точки. Если все соседи ниже, он останавливается, даже если в стороне есть вершина выше. ГА снижает этот риск за счёт популяции, кроссовера и мутации.</div>
+  </div>
+  <div class="quiz" data-answer="c">
+    <div class="qh">Мини-тест 0.2</div>
+    <div class="q">Хромосома стала длиннее на 1 бит. Как изменится время полного перебора?</div>
+    <div class="opts">
+      <button type="button" data-k="a">Увеличится на 1 проверку</button>
+      <button type="button" data-k="b">Не изменится</button>
+      <button type="button" data-k="c">Увеличится в 2 раза</button>
+      <button type="button" data-k="d">Увеличится в 10 раз</button>
+    </div>
+    <div class="ex">Вариантов было 2<sup>L</sup>, стало 2<sup>L+1</sup> = 2·2<sup>L</sup>. Каждый новый бит удваивает число вариантов, поэтому при 50 битах перебор занимает десятки тысяч лет.</div>
+  </div>
+</section>
+
+<!-- ============ TASK ============ -->
+<section id="task">
+  <div class="eyebrow">§1 · Постановка задачи</div>
+  <h2>Что именно мы ищем и сколько проходов делает алгоритм</h2>
+  <p>Прежде чем разбирать операторы, договоримся, что считается ответом и как долго работает алгоритм. Без этого непонятно, зачем нужны все шаги.</p>
+
+  <h3>Что дано</h3>
+  <ul>
+    <li>Функция f(x), например f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1.</li>
+    <li>Отрезок x ∈ [0, 1].</li>
+    <li>Длина хромосомы L = 4. Значит, x может принимать только 16 значений: x = b / 15, где b = 0, 1, …, 15.</li>
+  </ul>
+
+  <h3>Что ищем</h3>
+  <p>Среди этих 16 значений нужно найти то, где функция самая большая. Математически это записывают так:</p>
+  <div class="formula">x* = arg max f(b / 15),  где b ∈ {0, 1, …, 15}</div>
+  <p>Значок «arg max» читается как «тот аргумент, при котором максимум». Ответ состоит из трёх частей: <b>лучшая хромосома</b> (например <code>0111</code>), <b>x*</b> (например 7/15 ≈ 0.4667) и <b>f(x*)</b> (например 1.7311).</p>
+
+  <h3>Что такое «проход»</h3>
+  <p>Один проход алгоритма называется <b>поколением</b>. За один проход популяция из N особей превращается в новую популяцию из N особей. Внутри прохода всегда одни и те же шесть действий:</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Шаг</th><th>Что делаем</th><th>Формула</th><th>Зачем</th></tr>
+    <tr><td>1</td><td>Декодирование</td><td class="mono">x<sub>i</sub> = b<sub>i</sub> / 15</td><td>Перевести гены в число, которое понимает функция</td></tr>
+    <tr><td>2</td><td>Оценка</td><td class="mono">f<sub>i</sub> = f(x<sub>i</sub>)</td><td>Узнать, кто из особей лучше</td></tr>
+    <tr><td>3</td><td>Отбор родителей</td><td class="mono">e<sub>i</sub> = f<sub>i</sub> / f̄</td><td>Дать лучшим больше потомков</td></tr>
+    <tr><td>4</td><td>Составление пар</td><td>правило из условия</td><td>Подготовить скрещивание</td></tr>
+    <tr><td>5</td><td>Кроссовер</td><td>с вероятностью p<sub>c</sub></td><td>Соединить удачные части разных решений</td></tr>
+    <tr><td>6</td><td>Мутация</td><td>p<sub>m</sub> на каждый бит</td><td>Добавить новое, чего не было в популяции</td></tr>
+  </table></div>
+  <p style="margin-top:12px">Схема всего запуска: P<sub>1</sub> → P<sub>2</sub> → … → P<sub>G</sub>, где P<sub>t</sub> — популяция поколения t.</p>
+
+  <h3>Сколько проходов</h3>
+  <p>Число проходов G задаётся заранее: обычно это десятки или сотни поколений, в нашем примере G = 30. Почему нельзя остановиться, «когда нашли максимум»? В настоящей задаче мы не знаем, какой максимум правильный, поэтому не можем сказать «нашли». Есть три распространённых правила остановки:</p>
+  <ol class="cycle">
+    <li><span><b>Фиксированное число поколений G.</b> Самое простое правило: заранее решаем, например, «30 поколений», и останавливаемся. Его используют, когда нужно предсказуемое время работы или когда сравнивают разные настройки алгоритма в одинаковых условиях.</span></li>
+    <li><span><b>Нет улучшения.</b> Лучший результат не менялся, например, 10 поколений подряд.</span></li>
+    <li><span><b>Популяция стала одинаковой.</b> Дальше новое может дать только мутация.</span></li>
+  </ol>
+  <p>За один проход функция вычисляется N раз, за весь запуск — не больше N · G раз. Генетический алгоритм выгоден, когда N · G намного меньше числа всех вариантов. Например, при 40 битах вариантов около 10<sup>12</sup>, а ГА с N = 50 и G = 200 сделает не больше 10 000 вычислений: это одна стомиллионная часть. В нашем примере всего 4 бита, то есть 16 вариантов, и здесь перебор быстрее. Задача намеренно маленькая: каждый шаг можно проверить руками, а ответ ГА сравнить с правильным. Заметьте также, что многие из N · G вычислений повторные: одни и те же хромосомы встречаются в разных поколениях.</p>
+
+  <h3>Что запоминаем на каждом проходе и что считаем ответом</h3>
+  <p>После каждого прохода записываем максимальный, минимальный и средний fitness. Отдельно храним <b>лучшую особь за всё время</b>:</p>
+  <div class="formula">f<sub>best</sub>(t) = max { f<sub>i</sub>(τ) : τ ≤ t, i = 1…N }</div>
+  <p>Ответ алгоритма — лучшая особь за все G проходов, а не обязательно лучшая в последнем поколении. Лучшая особь может «потеряться»: её испортили кроссовер или мутация. Для проверки сравниваем ответ с полным перебором 16 значений.</p>
+  <div class="why"><b>Элитизм</b> — правило, по которому лучшая особь поколения переходит в следующее поколение без изменений, минуя кроссовер и мутацию. Как чемпион прошлого сезона, которого автоматически включают в следующий турнир. Без элитизма лучшая особь может пропасть, и максимум следующего поколения окажется ниже. С элитизмом максимум от поколения к поколению никогда не падает. Элитизм можно включить в симуляторе и в экспериментах ниже.</div>
+
+  <div class="quiz" data-answer="c">
+    <div class="qh">Мини-тест 1.1</div>
+    <div class="q">N = 4, G = 30. Сколько раз алгоритм вычислит f(x) за весь запуск?</div>
+    <div class="opts">
+      <button type="button" data-k="a">16</button>
+      <button type="button" data-k="b">34</button>
+      <button type="button" data-k="c">120</button>
+      <button type="button" data-k="d">4</button>
+    </div>
+    <div class="ex">Каждое из 30 поколений оценивает 4 особи: 4 · 30 = 120.</div>
+  </div>
+  <div class="quiz" data-answer="b">
+    <div class="qh">Мини-тест 1.2</div>
+    <div class="q">В 12-м поколении нашли f = 1.73, а в 30-м лучшая особь даёт 1.53. Что писать в ответ?</div>
+    <div class="opts">
+      <button type="button" data-k="a">1.53 — результат последнего поколения</button>
+      <button type="button" data-k="b">1.73 — лучшая особь за все проходы</button>
+      <button type="button" data-k="c">Среднее этих чисел</button>
+      <button type="button" data-k="d">Запуск неудачный, ответа нет</button>
+    </div>
+    <div class="ex">Ответ — лучшая найденная особь за весь запуск. То, что она потом потерялась, говорит об отсутствии элитизма, но найденное решение остаётся найденным.</div>
+  </div>
+</section>
+
+<!-- ============ TERMS ============ -->
+<section id="terms">
+  <div class="eyebrow">§2 · Словарь</div>
+  <h2>Биологические слова и что они значат в коде</h2>
+  <div class="terms">
+    <div class="term"><div class="bio">ген</div><b>Один бит</b><span>0 или 1. Минимальная единица наследственной информации.</span></div>
+    <div class="term"><div class="bio">хромосома</div><b>Строка битов длины L</b><span>Например, <code>1010</code>. Кодирует одно значение x.</span></div>
+    <div class="term"><div class="bio">особь</div><b>Одно решение-кандидат</b><span>Хромосома вместе с её значением fitness.</span></div>
+    <div class="term"><div class="bio">популяция</div><b>Набор из N особей</b><span>Алгоритм работает со всем набором сразу, а не с одной точкой.</span></div>
+    <div class="term"><div class="bio">приспособленность</div><b>Fitness = f(x)</b><span>Насколько хорошо решение. Ищем максимум, значит, чем больше, тем лучше.</span></div>
+    <div class="term"><div class="bio">поколение</div><b>Одна итерация цикла</b><span>Оценка → селекция → кроссовер → мутация. Всего G поколений.</span></div>
+  </div>
+  <h3>Эволюционный цикл</h3>
+  <ol class="cycle">
+    <li><span><b>Инициализация.</b> Создаём N случайных хромосом.</span></li>
+    <li><span><b>Оценка.</b> Декодируем каждую в x и вычисляем f(x).</span></li>
+    <li><span><b>Селекция.</b> Выбираем родителей: у лучших шансы выше.</span></li>
+    <li><span><b>Кроссовер</b> с вероятностью p<sub>c</sub>: родители обмениваются участками хромосом.</span></li>
+    <li><span><b>Мутация</b> с вероятностью p<sub>m</sub> для <i>каждого бита</i>: бит инвертируется.</span></li>
+    <li><span><b>Новое поколение</b> заменяет старое. Возвращаемся к шагу 2, пока не пройдём G поколений.</span></li>
+  </ol>
+</section>
+
+<!-- ============ CODING ============ -->
+<section id="coding">
+  <div class="eyebrow">§3 · Кодирование</div>
+  <h2>Как записать число, чтобы его можно было «скрещивать»</h2>
+  <p>Сначала поймём, зачем вообще нужны биты. Чтобы скрещивать и мутировать решения, их нужно записать в удобном виде. Как «скрестить» числа 0.4 и 0.0667? Непонятно. А две строки <code>0110</code> и <code>0001</code> легко разрезать посередине и склеить половинки. Поменять в строке один символ тоже просто. Поэтому каждое значение <var>x</var> записываем строкой из нулей и единиц. Эта строка и есть <b>хромосома</b>, а каждый её символ — <b>ген</b>.</p>
+
+  <h3>Шаг 1. Читаем двоичное число</h3>
+  <p>Каждая позиция в хромосоме имеет свой «вес», как монеты разного номинала: 8, 4, 2 и 1. Единица означает «эта монета есть», ноль означает «этой монеты нет». Складываем веса тех позиций, где стоят единицы.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Хромосома</th><th class="r">вес 8</th><th class="r">вес 4</th><th class="r">вес 2</th><th class="r">вес 1</th><th>Сумма b</th></tr>
+    <tr><td class="mono">0110</td><td class="r">0</td><td class="r">4</td><td class="r">2</td><td class="r">0</td><td>0 + 4 + 2 + 0 = <b>6</b></td></tr>
+    <tr><td class="mono">0001</td><td class="r">0</td><td class="r">0</td><td class="r">0</td><td class="r">1</td><td>= <b>1</b></td></tr>
+    <tr><td class="mono">1111</td><td class="r">8</td><td class="r">4</td><td class="r">2</td><td class="r">1</td><td>= <b>15</b>, самое большое значение</td></tr>
+    <tr><td class="mono">0000</td><td class="r">0</td><td class="r">0</td><td class="r">0</td><td class="r">0</td><td>= <b>0</b>, самое маленькое</td></tr>
+  </table></div>
+
+  <h3>Шаг 2. Переводим в отрезок [0, 1]</h3>
+  <p>Нам нужен <var>x</var> от 0 до 1, а <var>b</var> получилось от 0 до 15. Делим на самое большое возможное значение, 15. Тогда <code>0000</code> даст ровно 0, а <code>1111</code> — ровно 1:</p>
+  <div class="formula">x = b / (2<sup>L</sup> − 1) = b / 15</div>
+  <p>Например, <code>0110</code>: x = 6 / 15 = 0.4. Почему делим на 15, а не на 16? При делении на 16 хромосома <code>1111</code> дала бы 0.9375, и правый конец отрезка x = 1 никогда не был бы проверен.</p>
+
+  <h3>Шаг 3. Считаем оценку (fitness)</h3>
+  <p>Подставляем <var>x</var> в функцию: f(0.4) ≈ 1.5349. Это число и есть оценка особи. Чем оно больше, тем лучше особь решает нашу задачу.</p>
+  <p>Важное следствие: 4 бита дают только 16 возможных точек: 0, 1/15, 2/15, …, 1. Расстояние между соседними точками ≈ 0.0667. Алгоритм не может попасть «между» ними. Если нужна точность выше, берут больше битов.</p>
+
+  <div class="stand">
+    <div class="stand-title">Стенд: нажимайте на биты</div>
+    <div class="grid2">
+      <div>
+        <div class="bits" id="encBits" style="margin-top:20px"></div>
+        <div class="kv" id="encCalc" style="margin-top:14px"></div>
+      </div>
+      <canvas class="plot" id="encPlot" aria-label="График функции с отмеченной точкой текущей хромосомы"></canvas>
+    </div>
+    <p class="muted" style="margin:12px 0 0;font-size:14.5px">Все 16 возможных хромосом для функции примера f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1. Звёздочка отмечает глобальный максимум на сетке. Нажмите на плитку, чтобы выбрать её.</p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+  <div class="quiz" data-answer="c">
+    <div class="qh">Мини-тест 3.1</div>
+    <div class="q">Хромосома <code>1011</code>. Чему равен x?</div>
+    <div class="opts">
+      <button type="button" data-k="a">x = 0.7333</button>
+      <button type="button" data-k="b">x = 1.1</button>
+      <button type="button" data-k="c">x = 0.7333… а точнее 11/15</button>
+      <button type="button" data-k="d">x = 0.6875</button>
+    </div>
+    <div class="ex">1011₂ = 8 + 0 + 2 + 1 = 11, x = 11/15 ≈ 0.7333. Вариант «а» тоже даёт верное число, но полный ответ — дробь 11/15. Ошибка «d» возникает, если делить на 2<sup>L</sup> = 16 вместо 15: тогда значение x = 1 становится недостижимым.</div>
+  </div>
+  <details class="think">
+    <summary>Подумайте: при L = 4 всего 16 вариантов. Зачем тогда генетический алгоритм, если можно перебрать все?</summary>
+    <p>Верно, при L = 4 полный перебор занимает 16 вычислений, и это проще. Короткая хромосома взята, чтобы каждый шаг алгоритма можно было проверить руками. При L = 40 вариантов уже около 10<sup>12</sup>, а для задач с десятками переменных перебор становится невозможным. Механика ГА при этом остаётся той же самой.</p>
+  </details>
+</section>
+
+<!-- ============ SELECTION ============ -->
+<section id="selection">
+  <div class="eyebrow">§4 · Селекция</div>
+  <h2>Кто станет родителем</h2>
+  <p>У нас есть популяция, и у каждой особи есть оценка f. Теперь нужно решить, чьи гены перейдут в следующее поколение. Сравним три стратегии.</p>
+  <div class="terms">
+    <div class="term"><div class="bio">стратегия 1 · плохо</div><b>«Только лучший»</b><span>Родителем всегда становится одна лучшая особь. Разнообразие исчезает сразу. Если лучшая особь стоит на маленьком холме, вся популяция там и застрянет.</span></div>
+    <div class="term"><div class="bio">стратегия 2 · плохо</div><b>«Все поровну»</b><span>Каждая особь даёт одинаково потомков, хорошая она или плохая. Хорошие гены не получают преимущества, прогресса нет.</span></div>
+    <div class="term"><div class="bio">стратегия 3 · то, что нужно</div><b>«Пропорционально оценке»</b><span>Чем выше f, тем больше потомков. Лучшие размножаются сильнее, но и неплохие особи участвуют. Это и есть отбор, который мы используем.</span></div>
+  </div>
+  <p style="margin-top:12px">Почему не только лучшие? В «средней» особи может быть полезный кусок хромосомы. В нашем примере <code>0001</code> не лучшая, но именно её последний бит <code>1</code> в паре с <code>0110</code> даёт максимум <code>0111</code>.</p>
+
+  <h3>Шаг 1. Доля каждой особи</h3>
+  <p>Считаем, какую часть «общей оценки» популяции даёт каждая особь:</p>
+  <div class="formula">p<sub>i</sub> = f<sub>i</sub> / (f<sub>1</sub> + f<sub>2</sub> + … + f<sub>N</sub>) = f<sub>i</sub> / Σf</div>
+  <div class="tbl-wrap"><table>
+    <tr><th>№</th><th>Хромосома</th><th class="r">f<sub>i</sub></th><th class="r">p<sub>i</sub> = f<sub>i</sub> / 4.3986</th></tr>
+    <tr><td>1</td><td class="mono">0100</td><td class="r">0.2573</td><td class="r">0.0585</td></tr>
+    <tr><td>2</td><td class="mono">0110</td><td class="r">1.5349</td><td class="r">0.3490</td></tr>
+    <tr><td>3</td><td class="mono">1011</td><td class="r">1.2084</td><td class="r">0.2747</td></tr>
+    <tr><td>4</td><td class="mono">0001</td><td class="r">1.3980</td><td class="r">0.3178</td></tr>
+    <tr><td></td><td><b>Сумма</b></td><td class="r"><b>4.3986</b></td><td class="r"><b>1.0000</b></td></tr>
+  </table></div>
+  <p style="margin-top:12px">Доли в сумме всегда дают 1. Особь <code>0110</code> приносит 34.9% общей оценки, а <code>0100</code> — только 5.9%.</p>
+
+  <h3>Шаг 2. Сколько мест «заслуживает» каждая особь</h3>
+  <p>Нам нужно N мест для родителей: каждая пара даёт двух потомков, а новое поколение тоже должно состоять из N особей. При N = 4 это 4 места, то есть 2 пары. Делим места пропорционально долям:</p>
+  <div class="formula">e<sub>i</sub> = N · p<sub>i</sub> = f<sub>i</sub> / f̄,   где f̄ = Σf / N — средний fitness</div>
+  <p>Величину e<sub>i</sub> называют <b>ожидаемым числом копий</b>. Смысл простой: особь вдвое лучше среднего (e = 2) заслуживает двух мест, особь хуже среднего (e &lt; 1) — меньше одного.</p>
+  <div class="thm"><div class="th">Утверждение 1 · места делятся без остатка</div>
+    <p>Сумма всех e<sub>i</sub> всегда равна N.</p>
+    <p class="muted" style="font-size:15px;margin:0"><b>Почему.</b> Σe<sub>i</sub> = Σf<sub>i</sub> / f̄ = Σf<sub>i</sub> / (Σf<sub>i</sub> / N) = N. То есть «заслуженные» места ровно заполняют все N мест.</p>
+  </div>
+  <p>Проблема только одна: e<sub>i</sub> дробное, например 1.396, а место родителя — это целое число. Нужно аккуратно округлить. Для этого есть два способа.</p>
+
+  <h3>Способ 1. Целая часть + остаток</h3>
+  <ol class="cycle">
+    <li><span>Каждая особь получает ⌊e<sub>i</sub>⌋ мест — целую часть, округление вниз.</span></li>
+    <li><span>Считаем, сколько мест осталось: R = N − Σ⌊e<sub>i</sub>⌋.</span></li>
+    <li><span>Оставшиеся места раздаём по одному особям с самыми большими дробными частями e<sub>i</sub> − ⌊e<sub>i</sub>⌋, начиная с наибольшей.</span></li>
+  </ol>
+  <p>Это как распределить мандаты в парламенте по процентам голосов: сначала каждый получает целую часть, а оставшиеся места — те, у кого самые большие «хвостики».</p>
+
+  <h3>Способ 2. Равный шаг на отрезке</h3>
+  <p>Выкладываем доли p<sub>i</sub> одну за другой на отрезке от 0 до 1. Каждая особь получает кусок длиной p<sub>i</sub>. Границы кусков — накопленные суммы долей: 0.0585, затем 0.0585 + 0.3490 = 0.4075 и так далее. Потом ставим на отрезок N точек с одинаковым шагом 1/N:</p>
+  <div class="formula">r<sub>j</sub> = (j − 0.5) / N,   j = 1, …, N   →   при N = 4: 0.125, 0.375, 0.625, 0.875</div>
+  <p>Чей кусок накрыла точка, тот и получает место. Длинный кусок накрывает больше точек.</p>
+  <div class="thm"><div class="th">Утверждение 2 · способ 2 не ошибается больше чем на одно место</div>
+    <p>Каждая особь получает либо ⌊e<sub>i</sub>⌋, либо ⌈e<sub>i</sub>⌉ мест.</p>
+    <p class="muted" style="font-size:15px;margin:0"><b>Почему.</b> Точки стоят через 1/N. На кусок длиной p<sub>i</sub> помещается N · p<sub>i</sub> = e<sub>i</sub> шагов, округлённое вниз или вверх. Поэтому особь никогда не получает намного больше или меньше, чем заслуживает.</p>
+  </div>
+
+  <div class="stand">
+    <div class="stand-title">Стенд: оба способа на популяции 0100, 0110, 1011, 0001</div>
+    <div class="tbl-wrap"><table id="dsTable"></table></div>
+    <p class="kv" style="margin:18px 0 26px;font-size:13px">Способ 2: отрезок [0; 1), куски по долям и 4 точки с шагом 0.25</p>
+    <div class="rbar" id="rbar"></div>
+    <div class="rscale" id="rscale"></div>
+    <div id="dsText" style="margin-top:14px;font-size:15.5px"></div>
+  </div>
+
+  <div class="thm"><div class="th">Утверждение 3 · отбор улучшает популяцию</div>
+    <p><b>Средний fitness выбранных родителей не меньше среднего fitness всей популяции.</b></p>
+    <p>Почему: слабые особи получают меньше мест, сильные — больше, поэтому «средний родитель» сдвигается в сторону сильных. Насколько сильно, зависит от того, как сильно особи отличаются друг от друга. Если все особи почти одинаковые, отбору не из кого выбирать, и среднее почти не меняется.</p>
+    <p class="muted" style="font-size:15px">Для любопытных, точная формула при отборе пропорционально оценке: средний fitness родителей = Σf<sub>i</sub>² / Σf<sub>i</sub> = f̄ + D / f̄, где f̄ — средний fitness популяции, а D — дисперсия, мера того, насколько особи отличаются. D ≥ 0, поэтому результат не меньше f̄.</p>
+    <p class="muted" style="font-size:15px;margin:0" id="dsThm"></p>
+  </div>
+
+  <h3>Шаг 3. Составляем пары</h3>
+  <p>Выписываем родителей по порядку и ставим в пару <b>первого с последним, второго с предпоследним</b>. Так две копии одной особи попадают в разные пары: скрещивание особи с её же копией ничего нового не даёт.</p>
+
+  <div class="why"><b>Осторожно: оценка не может быть отрицательной.</b> Доля p<sub>i</sub> не может быть меньше нуля. Если функция бывает отрицательной, ко всем оценкам прибавляют одно и то же число так, чтобы наименьшая стала чуть больше нуля: f′ = f − f<sub>min</sub> + ε. Порядок особей при этом не меняется.</div>
+
+  <div class="quiz" data-answer="c">
+    <div class="qh">Мини-тест 4.1</div>
+    <div class="q">N = 4, оценки особей: 1, 1, 2, 4. Сколько мест получит особь с f = 4 по способу 1?</div>
+    <div class="opts">
+      <button type="button" data-k="a">1</button>
+      <button type="button" data-k="b">4</button>
+      <button type="button" data-k="c">2</button>
+      <button type="button" data-k="d">0.5</button>
+    </div>
+    <div class="ex">f̄ = (1 + 1 + 2 + 4) / 4 = 2, e = 4 / 2 = 2. Целая часть 2, дробной части нет: ровно 2 места.</div>
+  </div>
+  <div class="quiz" data-answer="d">
+    <div class="qh">Мини-тест 4.2</div>
+    <div class="q">Куски отрезка: особь 1 — [0; 0.2), особь 2 — [0.2; 0.7), особь 3 — [0.7; 1). Чья точка r = 0.83?</div>
+    <div class="opts">
+      <button type="button" data-k="a">Особь 1</button>
+      <button type="button" data-k="b">Особь 2</button>
+      <button type="button" data-k="c">Ничья, 0.83 больше 0.7</button>
+      <button type="button" data-k="d">Особь 3</button>
+    </div>
+    <div class="ex">0.83 лежит между 0.7 и 1, это кусок третьей особи.</div>
+  </div>
+</section>
+
+<!-- ============ CROSSOVER ============ -->
+<section id="crossover">
+  <div class="eyebrow">§5 · Кроссовер</div>
+  <h2>Кроссовер: потомок берёт часть от каждого родителя</h2>
+  <p>Ребёнок наследует часть признаков от мамы и часть от папы. В ГА то же самое делают с хромосомами: потомок получает начало строки от одного родителя, а конец — от другого.</p>
+  <p>Пример из жизни. У одного повара отличное тесто, у другого — отличная начинка. Если соединить тесто первого с начинкой второго, можно получить пиццу лучше, чем у обоих. Кроссовер рассчитывает именно на такую удачу: хорошие «куски» разных решений складываются в ещё лучшее решение. Удача бывает не всегда: иногда склеиваются как раз плохие куски.</p>
+
+  <h3>Как делается одноточечный кроссовер</h3>
+  <ol class="cycle">
+    <li><span><b>Берём пару родителей</b>, выбранных на шаге отбора.</span></li>
+    <li><span><b>Решаем, будет ли скрещивание.</b> Генерируем случайное r. Если r &lt; p<sub>c</sub>, скрещиваем. Иначе потомки становятся точными копиями родителей. При p<sub>c</sub> = 0.8 скрещиваются примерно 8 пар из 10.</span></li>
+    <li><span><b>Выбираем точку разреза k</b> случайно: между 1-м и 2-м битом (k = 1), между 2-м и 3-м (k = 2) или между 3-м и 4-м (k = 3). Резать перед первым битом или после последнего бессмысленно: обмена не будет.</span></li>
+    <li><span><b>Меняем «хвосты» местами.</b> Первый потомок: начало первого родителя + конец второго. Второй потомок наоборот.</span></li>
+  </ol>
+  <p>Пример: родители <code>0110</code> и <code>0001</code>, k = 3. Режем: <code>011|0</code> и <code>000|1</code>. Склеиваем: <code>011</code> + <code>1</code> = <code>0111</code> и <code>000</code> + <code>0</code> = <code>0000</code>.</p>
+  <div class="formula">A = a₁a₂ | a₃a₄,  B = b₁b₂ | b₃b₄  →  A′ = a₁a₂b₃b₄,  B′ = b₁b₂a₃a₄</div>
+
+  <div class="stand">
+    <div class="stand-title">Стенд: кликните по битам родителей, двигайте точку разреза</div>
+    <div style="display:grid;gap:22px">
+      <div class="row"><span class="kv" style="width:110px">Родитель A</span><div class="bits" id="pA"></div><span class="kv muted" id="pAf"></span></div>
+      <div class="row"><span class="kv" style="width:110px">Родитель B</span><div class="bits" id="pB"></div><span class="kv muted" id="pBf"></span></div>
+      <div class="row"><label class="ctl" style="flex-direction:row;align-items:center;gap:10px" for="cutPt">Точка кроссовера k = <b id="cutVal" class="kv">3</b><input type="range" id="cutPt" min="1" max="3" value="3"></label></div>
+      <div class="row"><span class="kv" style="width:110px">Потомок 1</span><div class="bits" id="cA"></div><span class="kv muted" id="cAf"></span></div>
+      <div class="row"><span class="kv" style="width:110px">Потомок 2</span><div class="bits" id="cB"></div><span class="kv muted" id="cBf"></span></div>
+      <div class="row"><button class="btn ghost" type="button" id="coinBtn">Бросить «монетку» с p<sub>c</sub> = 0.8</button><span class="kv" id="coinOut"></span></div>
+    </div>
+  </div>
+  <div class="why"><b>Зачем нужен кроссовер.</b> Он комбинирует удачные фрагменты разных решений. Родители <code>0110</code> и <code>0001</code> не лучшие, но при k = 3 их скрещивание даёт <code>0111</code>, глобальный максимум на сетке. Попробуйте на стенде k = 1 и k = 2: там такой удачи нет.</div>
+  <p><b>Почему не скрещивать всегда (p<sub>c</sub> = 1)?</b> Кроссовер может и испортить хорошее решение, разрезав его неудачно. Если часть пар переходит в следующее поколение без изменений, хорошие особи чаще сохраняются. А при p<sub>c</sub> = 0 новые комбинации не появляются вообще, кроме как через мутацию.</p>
+  <div class="quiz" data-answer="a">
+    <div class="qh">Мини-тест 5.1</div>
+    <div class="q">Родители <code>1100</code> и <code>0011</code>, точка кроссовера k = 1. Какие потомки?</div>
+    <div class="opts">
+      <button type="button" data-k="a"><code>1011</code> и <code>0100</code></button>
+      <button type="button" data-k="b"><code>1111</code> и <code>0000</code></button>
+      <button type="button" data-k="c"><code>1100</code> и <code>0011</code></button>
+      <button type="button" data-k="d"><code>1001</code> и <code>0110</code></button>
+    </div>
+    <div class="ex">1 | 100 и 0 | 011 → 1 + 011 = <code>1011</code>, 0 + 100 = <code>0100</code>. Вариант «b» получился бы при k = 2.</div>
+  </div>
+</section>
+
+<!-- ============ MUTATION ============ -->
+<section id="mutation">
+  <div class="eyebrow">§6 · Мутация</div>
+  <h2>Мутация: случайная «опечатка» в генах</h2>
+  <p>Когда переписываешь текст от руки, иногда случаются опечатки. Обычно они вредят, но изредка случайно получается слово удачнее исходного. В природе так появляются новые признаки, которых не было ни у одного предка. В ГА мутация — это случайная замена бита на противоположный.</p>
+
+  <h3>Зачем мутация, если есть кроссовер</h3>
+  <p>Кроссовер только переставляет то, что уже есть в популяции. Пусть популяция такая: <code>0110</code>, <code>0011</code>, <code>0101</code>, <code>0001</code>. У всех первый бит равен 0. Как их ни скрещивай, первый бит у потомков тоже будет 0, и половина всех вариантов (от <code>1000</code> до <code>1111</code>, то есть x ≥ 0.53) навсегда останется непроверенной. Мутация может поменять этот бит и открыть новую область.</p>
+
+  <h3>Как она работает</h3>
+  <ol class="cycle">
+    <li><span><b>Проходим по каждому биту каждого потомка.</b> При N = 4 и L = 4 это 16 битов.</span></li>
+    <li><span><b>Для каждого бита генерируем случайное r</b> от 0 до 1.</span></li>
+    <li><span><b>Если r &lt; p<sub>m</sub>, бит меняется</b> на противоположный: 0 → 1 или 1 → 0. Иначе бит остаётся как был.</span></li>
+  </ol>
+  <p>Значение p<sub>m</sub> = 0.05 означает «в среднем меняется 1 бит из 20». Всего битов N · L, каждый мутирует с вероятностью p<sub>m</sub>, поэтому среднее число мутаций за поколение:</p>
+  <div class="formula">ожидаемое число мутаций = N · L · p<sub>m</sub>    (при N = 4, L = 4, p<sub>m</sub> = 0.05 это 0.8)</div>
+  <p>То есть в среднем меньше одной мутации на всё поколение. В одних поколениях мутаций не будет, в других будет одна-две.</p>
+  <div class="stand">
+    <div class="stand-title">Стенд: мутация хромосомы</div>
+    <div class="row" style="gap:24px">
+      <div class="bits" id="mBits" style="margin-top:22px"></div>
+      <label class="ctl" for="pmR">p<sub>m</sub> = <b id="pmVal" class="kv">0.25</b><input type="range" id="pmR" min="0" max="1" step="0.01" value="0.25"></label>
+      <button class="btn" type="button" id="mutBtn">Применить мутацию</button>
+    </div>
+    <div class="kv" id="mutR" style="margin-top:12px"></div>
+    <pre class="log" id="mutLog" style="margin-top:10px;max-height:150px">Здесь появятся сообщения вида «Мутация в особи №1, бит 3 изменен с 0 на 1»</pre>
+  </div>
+  <div class="why"><b>Сколько мутации нужно.</b> Слишком мало: популяция становится одинаковой и застревает. Слишком много: потомки почти не похожи на родителей, хорошие решения постоянно портятся, и поиск превращается в случайное угадывание. Поэтому p<sub>m</sub> обычно берут маленьким. Часто используют правило p<sub>m</sub> ≈ 1/L, то есть примерно одна мутация на хромосому.</div>
+  <div class="quiz" data-answer="c">
+    <div class="qh">Мини-тест 6.1</div>
+    <div class="q">N = 10, L = 4, p<sub>m</sub> = 0.05. Сколько битов в среднем мутирует за одно поколение?</div>
+    <div class="opts">
+      <button type="button" data-k="a">0.05</button>
+      <button type="button" data-k="b">0.5</button>
+      <button type="button" data-k="c">2</button>
+      <button type="button" data-k="d">10</button>
+    </div>
+    <div class="ex">Всего 10 · 4 = 40 битов, каждый мутирует с вероятностью 0.05: 40 · 0.05 = 2. Ответ 0.5 получается, если умножить p<sub>m</sub> на N и забыть про L.</div>
+  </div>
+</section>
+
+<!-- ============ EXAMPLE ============ -->
+<section id="example">
+  <div class="eyebrow">§7 · Пример с решением</div>
+  <h2>Один проход вручную, по формулам: f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1</h2>
+  <p>Параметры: <span class="chip">N = 4</span> <span class="chip">L = 4</span> <span class="chip">p<sub>c</sub> = 0.8</span> <span class="chip">p<sub>m</sub> = 0.05</span>. Родителей выбираем по формуле ожидаемого числа копий, а случайные числа для кроссовера и мутации даны в условии. Так результат можно повторить на бумаге. Идите по шагам: у каждого есть формула, расчёт и пояснение, зачем он нужен.</p>
+  <div class="stand" id="exStand">
+    <div class="steps-nav" id="stepsNav"></div>
+    <div id="steps"></div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn ghost" type="button" id="stepPrev">← Назад</button>
+      <button class="btn" type="button" id="stepNext">Следующий шаг →</button>
+      <button class="btn ghost" type="button" id="stepAll">Показать все шаги</button>
+    </div>
+  </div>
+
+  <h3>Задача для самопроверки: кроссовер во втором проходе</h3>
+  <p>Во втором проходе родители — все четыре особи по одному разу: <code>0111</code>, <code>0000</code>, <code>0110</code>, <code>1111</code>. По правилу «первый с последним, второй с предпоследним» пара 2 — это <code>0000</code> и <code>0110</code>. Для неё r = 0.27 &lt; 0.8, точка k = 2, мутаций нет. Запишите потомков.</p>
+  <div class="stand">
+    <div class="row">
+      <label class="ctl" for="ans1">Потомок 1<input class="txt answer-in" id="ans1" maxlength="4" placeholder="0000" autocomplete="off"></label>
+      <label class="ctl" for="ans2">Потомок 2<input class="txt answer-in" id="ans2" maxlength="4" placeholder="0000" autocomplete="off"></label>
+      <button class="btn" type="button" id="ansBtn" style="align-self:flex-end">Проверить</button>
+      <span class="fb" id="ansFb" style="align-self:flex-end"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FULL RUN ============ -->
+<section id="fullrun">
+  <div class="eyebrow">§7 (продолжение) · Полный проход</div>
+  <h2>Все 30 поколений: решаем вариант 1 до конца</h2>
+  <p>Теперь пройдём весь запуск из 30 проходов: <span class="chip">N = 4</span> <span class="chip">L = 4</span> <span class="chip">p<sub>c</sub> = 0.8</span> <span class="chip">p<sub>m</sub> = 0.05</span> <span class="chip">G = 30</span> <span class="chip">seed = 80</span> <span class="chip">отбор: способ 1</span> <span class="chip">без элитизма</span>. Листайте поколения. Для каждого видно популяцию на графике, выбранных родителей, точки кроссовера, мутации и комментарий о том, что изменилось и почему.</p>
+  <p>Родителей в каждом поколении выбираем способом 1 (целая часть + остаток), пары — «первый с последним». Случайными остаются только решения о кроссовере и мутации. Стартовая популяция здесь неудачная: ни одна из четырёх особей не стоит у главной вершины. Посмотрите, как алгоритм к ней пробирается.</p>
+  <div class="stand">
+    <div class="row" style="justify-content:space-between">
+      <div class="row" style="gap:6px">
+        <button class="btn ghost" type="button" id="frFirst" aria-label="К первому поколению">⏮</button>
+        <button class="btn ghost" type="button" id="frPrev">← Пред.</button>
+        <button class="btn" type="button" id="frPlay">▶ Проиграть</button>
+        <button class="btn ghost" type="button" id="frNext">След. →</button>
+        <button class="btn ghost" type="button" id="frLast" aria-label="К последнему поколению">⏭</button>
+      </div>
+      <label class="ctl" for="frSlider" style="flex-direction:row;align-items:center;gap:10px;min-width:0"><b class="kv" id="frGen">Поколение 1 / 30</b><input type="range" id="frSlider" min="1" max="30" value="1"></label>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <canvas class="plot" id="frPlot" aria-label="Популяция текущего поколения на графике функции"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>текущее поколение (размер = число копий)</span><span><i style="background:var(--muted)"></i>кольца: прошлое поколение</span></div>
+      </div>
+      <div>
+        <div class="tbl-wrap"><table id="frPop"></table></div>
+        <p class="kv" id="frStats" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <div class="why" id="frNote" style="margin-top:14px"></div>
+    <h3 id="frOpsTitle">Операторы: как получается следующее поколение</h3>
+    <div id="frOps"></div>
+    <p class="muted" style="font-size:14px;margin:14px 0 4px">Статистика по поколениям, пунктир — текущее поколение</p>
+    <canvas class="plot" id="frChart" style="height:200px"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>максимальный fitness</span>
+      <span><i style="background:var(--accent-2)"></i>средний</span>
+      <span><i style="background:var(--muted)"></i>минимальный</span>
+      <span><i style="background:var(--s3)"></i>лучший за всё время</span>
+    </div>
+    <details class="think" style="margin-bottom:0"><summary>Текстовый лог этого поколения</summary><pre class="log" id="frLog" style="margin-top:10px"></pre></details>
+  </div>
+</section>
+
+<!-- ============ SIMULATOR ============ -->
+<section id="sim">
+  <div class="eyebrow">§8 · Симулятор</div>
+  <h2>Запускаем алгоритм целиком</h2>
+  <p>Здесь собран полный ГА: отбор по формуле (способ 1 или 2, со сдвигом при отрицательных f), одноточечный кроссовер и побитовая мутация. Можно задать параметры, выбрать функцию или ввести свою. Лог формируется программой автоматически: для каждого поколения видны популяция, отбор, пары, кроссовер и мутации.</p>
+  <div class="stand">
+    <div class="stand-title">Параметры</div>
+    <div class="row" style="align-items:flex-end">
+      <label class="ctl" for="sN">N (2–20)<input type="number" id="sN" min="2" max="20" value="4"></label>
+      <label class="ctl" for="sPc">p<sub>c</sub> (0–1)<input type="number" id="sPc" min="0" max="1" step="0.05" value="0.8"></label>
+      <label class="ctl" for="sPm">p<sub>m</sub> (0–1)<input type="number" id="sPm" min="0" max="1" step="0.01" value="0.05"></label>
+      <label class="ctl" for="sG">G (≥ 30)<input type="number" id="sG" min="30" max="500" value="30"></label>
+      <label class="ctl" for="sSeed">seed<input type="number" id="sSeed" value="7"></label>
+      <label class="ctl" for="sL">L<input type="number" id="sL" value="4" disabled title="Длина хромосомы фиксирована"></label>
+    </div>
+    <div class="row" style="align-items:flex-end;margin-top:12px">
+      <label class="ctl" for="sF" style="min-width:280px">Функция
+        <select id="sF">
+          <option value="0">Пример лекции (вариант 1): x·sin(6πx) + 0.5cos(4πx) + 1</option>
+          <option value="1">Демо: 1 + 0.5(1−x)·sin(5πx) + 0.4x (почти равные пики)</option>
+          <option value="2">Демо: 0.6·sin(3πx) + x (есть f &lt; 0)</option>
+          <option value="custom">Своя формула…</option>
+        </select>
+      </label>
+      <label class="ctl" for="sExpr" id="exprWrap" style="display:none;min-width:260px">f(x) =<input class="txt" id="sExpr" value="exp(-x)*sin(5*pi*x)"></label>
+      <label class="ctl" for="sSel">Отбор<select id="sSel"><option value="copies">Способ 1: целая часть + остаток</option><option value="sus">Способ 2: равный шаг</option></select></label>
+      <label class="ctl" for="sElite" style="flex-direction:row;align-items:center;gap:6px;min-width:0"><input type="checkbox" id="sElite"> элитизм</label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" type="button" id="runBtn">Запустить</button>
+      <span class="muted" style="font-size:14px">Готовые наборы:</span>
+      <button class="btn ghost" type="button" data-preset="0.8,0.05">Эксп. 1: 0.8 / 0.05</button>
+      <button class="btn ghost" type="button" data-preset="0.4,0.01">Эксп. 2: 0.4 / 0.01</button>
+      <button class="btn ghost" type="button" data-preset="0.9,0.15">Эксп. 3: 0.9 / 0.15</button>
+    </div>
+    <p class="fb no" id="simErr" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="result" id="simResult"></div>
+  <canvas class="plot" id="simChart" style="height:260px" aria-label="График fitness по поколениям"></canvas>
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>максимальный fitness</span>
+    <span><i style="background:var(--accent-2)"></i>средний</span>
+    <span><i style="background:var(--muted)"></i>минимальный</span>
+    <span><i style="background:var(--s3)"></i>лучший за всё время</span>
+  </div>
+  <div class="tabs" role="tablist">
+    <button type="button" class="on" data-tab="tLog">Лог поколений</button>
+    <button type="button" data-tab="tEvo">Таблица эволюции</button>
+    <button type="button" data-tab="tStat">Статистика поколений</button>
+    <button type="button" data-tab="tPlot">Популяция на графике f(x)</button>
+  </div>
+  <div class="tabpane on" id="tLog">
+    <div class="row" style="margin-bottom:8px"><button class="btn ghost" type="button" id="copyLog">Скопировать лог</button><span class="muted" id="copyFb" style="font-size:14px"></span></div>
+    <pre class="log" id="simLog"></pre>
+  </div>
+  <div class="tabpane" id="tEvo"><div class="tbl-scroll"><table id="evoTable"></table></div></div>
+  <div class="tabpane" id="tStat"><div class="tbl-scroll"><table id="statTable"></table></div></div>
+  <div class="tabpane" id="tPlot">
+    <div class="row"><label class="ctl" for="genSlider" style="flex-direction:row;align-items:center;gap:10px">Поколение <b class="kv" id="genVal">1</b><input type="range" id="genSlider" min="1" max="30" value="1"></label><button class="btn ghost" type="button" id="genPlay">▶ Проиграть</button></div>
+    <canvas class="plot" id="genPlot" style="height:240px"></canvas>
+  </div>
+</section>
+
+<!-- ============ EXPERIMENTS ============ -->
+<section id="experiments">
+  <div class="eyebrow">§9 · Эксперименты</div>
+  <h2>Как p<sub>c</sub> и p<sub>m</sub> влияют на сходимость</h2>
+  <p>Один запуск ГА — это одна случайная история, и по ней нельзя судить о параметрах. Правильный эксперимент: много запусков с разными seed и усреднение результатов. Ниже каждая конфигурация запускается 300 раз на функции примера.</p>
+  <div class="stand">
+    <div class="stand-title">Конфигурации (можно менять)</div>
+    <div class="tbl-wrap"><table id="cfgTable"></table></div>
+    <div class="row" style="margin-top:12px">
+      <label class="ctl" for="eSel">Отбор<select id="eSel"><option value="copies">Способ 1</option><option value="sus">Способ 2</option></select></label>
+      <label class="ctl" for="eElite" style="flex-direction:row;align-items:center;gap:6px;min-width:0"><input type="checkbox" id="eElite"> элитизм</label>
+      <button class="btn" type="button" id="expBtn">Провести эксперименты</button>
+    </div>
+  </div>
+  <div class="grid2">
+    <div><p class="muted" style="font-size:14px;margin:0">Доля запусков, где глобальный максимум (0111) уже найден, %</p><canvas class="plot" id="expChart1"></canvas></div>
+    <div><p class="muted" style="font-size:14px;margin:0">Средний fitness популяции (усреднение по запускам)</p><canvas class="plot" id="expChart2"></canvas></div>
+  </div>
+  <div class="legend" id="expLegend"></div>
+  <div class="tbl-wrap" style="margin-top:14px"><table id="expTable"></table></div>
+
+  <h3>Как читать результаты</h3>
+  <div class="why"><b>Малые p<sub>c</sub> и p<sub>m</sub> (0.4 / 0.01).</b> Новых комбинаций появляется мало, и популяция надолго остаётся около первой найденной вершины. Это <i>преждевременная сходимость</i>: алгоритм чаще других «застревает» не в той точке, например на <code>0110</code> (f = 1.535) или на краях <code>0000</code> и <code>1111</code> (f = 1.5), хотя максимум <code>0111</code> даёт 1.731. Сравните в таблице долю запусков, нашедших максимум.</div>
+  <div class="why"><b>Большая мутация (0.9 / 0.15).</b> Около 2.4 мутаций за поколение на 16 битов: алгоритм много исследует и чаще находит максимум. Но средний fitness «шумит», и лучшая особь может пропасть в следующем поколении. Это заметно по разнице между «лучший за всё время» и «лучший в последнем поколении».</div>
+  <div class="why"><b>Умеренные значения (0.8 / 0.05).</b> Компромисс между исследованием (exploration) и использованием найденного (exploitation). Включите элитизм и сравните: он сохраняет лучшую особь и делает кривую максимума монотонной.</div>
+  <details class="think">
+    <summary>Подумайте: почему с N = 4 результаты так сильно зависят от seed?</summary>
+    <p>Четыре особи покрывают максимум 4 из 16 точек. Один неудачный кроссовер или одна мутация меняют четверть популяции, и путь алгоритма сильно зависит от случайных чисел. Увеличьте N до 10–20 в таблице конфигураций: особей больше, точек покрыто больше, и разброс результатов уменьшится.</p>
+  </details>
+</section>
+
+<!-- ============ TEST ============ -->
+<section id="test">
+  <div class="eyebrow">§10 · Итоговая контрольная</div>
+  <h2>Проверьте себя: 10 вопросов</h2>
+  <p>Ответ засчитывается с первой попытки. Пояснение появляется сразу после выбора.</p>
+  <div id="finalQuiz"></div>
+  <div class="final-score" id="finalScore">Отвечено 0 из 10</div>
+  <button class="btn ghost" type="button" id="resetTest" style="margin-top:10px">Пройти заново</button>
+</section>
+
+</main>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const L=4, B=15;
+const fmt=(v,d=4)=>Number.isFinite(v)?v.toFixed(d):'—';
+const toBits=b=>b.toString(2).padStart(L,'0');
+const fA=x=>x*Math.sin(6*Math.PI*x)+0.5*Math.cos(4*Math.PI*x)+1;
+const F_TXT='x·sin(6πx) + 0.5·cos(4πx) + 1';
+function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
+const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function setup(c){const dpr=window.devicePixelRatio||1;const w=c.clientWidth||600,h=c.clientHeight||220;c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return{ctx,w,h};}
+function bitsHTML(s,cls='',sm=false){return '<span class="bits">'+[...s].map(c=>`<span class="bit ${sm?'sm':''} ${cls} ${c==='1'?'one':''}">${c}</span>`).join('')+'</span>';}
+function bitsSm(s,cls=''){return bitsHTML(s,cls,true);}
+
+/* ---------- function plot ---------- */
+function drawFunction(c,f,marks=[],opt={}){
+  const {ctx,w,h}=setup(c);
+  const pad={l:44,r:14,t:14,b:26};
+  const ys=[];for(let i=0;i<=400;i++)ys.push(f(i/400));
+  for(let b=0;b<=B;b++)ys.push(f(b/B));
+  let ymin=Math.min(...ys),ymax=Math.max(...ys);const d=(ymax-ymin)||1;ymin-=d*.08;ymax+=d*.14;
+  const X=x=>pad.l+x*(w-pad.l-pad.r),Y=y=>h-pad.b-(y-ymin)/(ymax-ymin)*(h-pad.t-pad.b);
+  ctx.clearRect(0,0,w,h);
+  ctx.font='11px '+css('--font-mono');ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const yv=ymin+(ymax-ymin)*i/4,yy=Y(yv);ctx.strokeStyle=css('--rule');ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.fillStyle=css('--muted');ctx.textAlign='right';ctx.fillText(yv.toFixed(2),pad.l-6,yy+4);}
+  ctx.textAlign='center';[0,.25,.5,.75,1].forEach(xv=>ctx.fillText(String(xv),X(xv),h-8));
+  ctx.strokeStyle=css('--ink');ctx.globalAlpha=.55;ctx.lineWidth=1.6;ctx.beginPath();
+  for(let i=0;i<=400;i++){const x=i/400;i?ctx.lineTo(X(x),Y(f(x))):ctx.moveTo(X(x),Y(f(x)));}
+  ctx.stroke();ctx.globalAlpha=1;
+  ctx.fillStyle=css('--muted');
+  for(let b=0;b<=B;b++){ctx.beginPath();ctx.arc(X(b/B),Y(f(b/B)),2.6,0,7);ctx.fill();}
+  marks.forEach(m=>{
+    const x=m.x!==undefined?m.x:m.b/B, y=m.y!==undefined?m.y:f(x);
+    ctx.beginPath();ctx.arc(X(x),Y(y),m.r||7,0,7);
+    if(m.hollow){ctx.strokeStyle=m.color||css('--accent');ctx.lineWidth=2;ctx.stroke();}
+    else{ctx.fillStyle=m.color||css('--accent');ctx.globalAlpha=m.alpha||.9;ctx.fill();ctx.globalAlpha=1;}
+    if(m.label){ctx.fillStyle=css('--ink');ctx.font='600 11px '+css('--font-mono');const tw=ctx.measureText(m.label).width;const lx=Math.min(Math.max(X(x),pad.l+tw/2),w-pad.r-tw/2);ctx.textAlign='center';ctx.fillText(m.label,lx,Y(y)-(m.r||7)-5);}
+  });
+  return {X,Y};
+}
+
+/* ---------- line chart ---------- */
+function drawLines(c,series,opt={}){
+  const {ctx,w,h}=setup(c);
+  const pad={l:48,r:14,t:12,b:28};
+  const n=Math.max(...series.map(s=>s.values.length));
+  let all=series.flatMap(s=>s.values).filter(Number.isFinite);
+  let ymin=opt.ymin!==undefined?opt.ymin:Math.min(...all), ymax=opt.ymax!==undefined?opt.ymax:Math.max(...all);
+  if(opt.ymin===undefined){const d=(ymax-ymin)||1;ymin-=d*.06;ymax+=d*.06;}
+  const X=i=>pad.l+(n<=1?0:i/(n-1))*(w-pad.l-pad.r),Y=y=>h-pad.b-(y-ymin)/(ymax-ymin||1)*(h-pad.t-pad.b);
+  ctx.clearRect(0,0,w,h);ctx.font='11px '+css('--font-mono');ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const yv=ymin+(ymax-ymin)*i/4,yy=Y(yv);ctx.strokeStyle=css('--rule');ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.fillStyle=css('--muted');ctx.textAlign='right';ctx.fillText((opt.yfmt||(v=>v.toFixed(2)))(yv),pad.l-6,yy+4);}
+  ctx.textAlign='center';
+  const step=Math.max(1,Math.ceil(n/8));
+  for(let i=0;i<n;i+=step)ctx.fillText(String(i+1),X(i),h-9);
+  if((n-1)%step)ctx.fillText(String(n),X(n-1),h-9);
+  if(opt.marker!==undefined){ctx.strokeStyle=css('--ink');ctx.globalAlpha=.45;ctx.setLineDash([4,4]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X(opt.marker),pad.t);ctx.lineTo(X(opt.marker),h-pad.b);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;}
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color;ctx.lineWidth=s.width||2;ctx.setLineDash(s.dash||[]);ctx.beginPath();
+    s.values.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.stroke();ctx.setLineDash([]);
+    if(s.area){ctx.lineTo(X(s.values.length-1),Y(ymin));ctx.lineTo(X(0),Y(ymin));ctx.closePath();ctx.globalAlpha=.08;ctx.fillStyle=s.color;ctx.fill();ctx.globalAlpha=1;}
+    const li=s.values.length-1;ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(X(li),Y(s.values[li]),3.5,0,7);ctx.fill();
+  });
+}
+
+/* ---------- core GA ---------- */
+/* deterministic selection: method 'copies' (integer part + remainder) or 'sus' (equal step) */
+function detSelect(fit,method){
+  const n=fit.length,mn=Math.min(...fit),shift=mn<=0?-mn+1e-3:0,w=fit.map(v=>v+shift),tot=w.reduce((a,b)=>a+b,0),av=tot/n;
+  const p=w.map(v=>v/tot),e=w.map(v=>v/av);
+  let cp;
+  if(method==='sus'){const cum=[];let a=0;p.forEach(v=>{a+=v;cum.push(a);});cp=fit.map(()=>0);for(let j=0;j<n;j++){const r=(j+0.5)/n;let i=cum.findIndex(c=>r<c);if(i<0)i=n-1;cp[i]++;}}
+  else{const fl=e.map(v=>Math.floor(v+1e-9)),fr=e.map((v,i)=>v-fl[i]);let rest=n-fl.reduce((a,b)=>a+b,0);const ord=[...fr.keys()].sort((a,b)=>fr[b]-fr[a]||a-b);cp=fl.slice();for(let k=0;k<rest;k++)cp[ord[k]]++;}
+  const parents=[];cp.forEach((c,i)=>{for(let k=0;k<c;k++)parents.push(i);});
+  return{shift,p,e,cp,parents};
+}
+function runGA({N,pc,pm,G,f,seed,elitism,sel='copies',log=true}){
+  const rnd=mulberry32(seed>>>0);
+  let pop=Array.from({length:N},()=>toBits(Math.floor(rnd()*16)));
+  const gens=[];const out=[];const P=s=>{if(log)out.push(s);};
+  let best={s:pop[0],f:-Infinity,gen:1};
+  for(let g=1;g<=G;g++){
+    const ls=out.length;
+    const xs=pop.map(s=>parseInt(s,2)/B), fit=xs.map(f);
+    let mx=-Infinity,mn=Infinity,sum=0,bi=0;fit.forEach((v,i)=>{if(v>mx){mx=v;bi=i;}if(v<mn)mn=v;sum+=v;});
+    const avg=sum/N;
+    if(mx>best.f)best={s:pop[bi],f:mx,gen:g};
+    gens.push({pop:[...pop],fit,max:mx,min:mn,avg,bestIdx:bi,bestEver:best.f,uniq:new Set(pop).size});
+    if(log){
+      P(`════════ Поколение: ${g} ════════`);P('');P('Популяция:');
+      pop.forEach((s,i)=>P(`${String(i+1).padStart(2)}. Хромосома: ${s} | Десятичное значение: ${String(parseInt(s,2)).padStart(2)} | x: ${fmt(xs[i])} | fitness: ${fmt(fit[i])}`));
+      P('');P('Статистика поколения:');P(`- Максимальный fitness: ${fmt(mx)}  (особь №${bi+1}, ${pop[bi]})`);P(`- Минимальный fitness: ${fmt(mn)}`);P(`- Средний fitness: ${fmt(avg)}`);
+    }
+    if(g===G){P('');P('Последнее поколение: операторы не применяются.');gens[g-1].log=out.slice(ls).join('\n');break;}
+    const ds=detSelect(fit,sel),par=ds.parents;
+    const kids=[];let pairNo=0;const cur=gens[gens.length-1];cur.pairs=[];cur.muts=[];cur.p=ds.p;cur.e=ds.e;cur.cp=ds.cp;cur.shift=ds.shift;
+    if(log){P('');P(`Отбор (${sel==='sus'?'способ 2: равный шаг r_j = (j − 0.5)/N':'способ 1: целая часть + остаток'}${ds.shift?`; fitness сдвинут на +${fmt(ds.shift)}, т.к. есть f ≤ 0`:''}):`);
+      P('  e = f / f̄ = ['+ds.e.map(v=>fmt(v,3)).join(', ')+']');
+      P('  мест  = ['+ds.cp.join(', ')+'] → родители: '+par.map(i=>pop[i]).join(', '));
+      P('  пары: первый с последним, второй с предпоследним');}
+    for(let q=0;kids.length<N;q++){
+      pairNo++;const ia=par[q],ib=(N-1-q!==q)?par[N-1-q]:par[0];
+      let c1=pop[ia],c2=pop[ib];
+      if(log){P(`- Пара ${pairNo}: Родитель 1: особь №${ia+1} (${pop[ia]}); Родитель 2: особь №${ib+1} (${pop[ib]})`);}
+      const rc=rnd();let kk=0;
+      if(rc<pc){const k=kk=1+Math.floor(rnd()*(L-1));c1=pop[ia].slice(0,k)+pop[ib].slice(k);c2=pop[ib].slice(0,k)+pop[ia].slice(k);
+        P(`  Кроссовер: выполнен: да (r=${fmt(rc,3)} < pc=${pc}) | Точка кроссовера: ${k} | ${pop[ia].slice(0,k)}|${pop[ia].slice(k)} × ${pop[ib].slice(0,k)}|${pop[ib].slice(k)} → Потомки: ${c1} и ${c2}`);}
+      else P(`  Кроссовер: выполнен: нет (r=${fmt(rc,3)} ≥ pc=${pc}) → потомки копируют родителей: ${c1} и ${c2}`);
+      cur.pairs.push({ia,ib,rc,cx:rc<pc,k:kk,c1,c2,drop:kids.length+2>N});
+      kids.push(c1);if(kids.length<N)kids.push(c2);else P(`  (N нечётно: второй потомок ${c2} отброшен)`);
+    }
+    P('');P(`Мутация (каждый бит инвертируется с вероятностью pm=${pm}):`);
+    let mc=0;
+    for(let k=0;k<N;k++){const arr=[...kids[k]];for(let j=0;j<L;j++){if(rnd()<pm){const o=arr[j];arr[j]=o==='1'?'0':'1';mc++;cur.muts.push({k,j,from:o,to:arr[j],before:kids[k]});P(`- Мутация в особи №${k+1}, бит ${j+1} изменен с ${o} на ${arr[j]}  (${kids[k]} → ${arr.join('')})`);kids[k]=arr.join('');}}}
+    if(!mc)P('- Мутаций не произошло');
+    if(elitism){
+      const elite=pop[bi];if(!kids.includes(elite)){let wi=0,wv=Infinity;kids.forEach((s,i)=>{const v=f(parseInt(s,2)/B);if(v<wv){wv=v;wi=i;}});P(`Элитизм: лучшая особь ${elite} перенесена вместо особи №${wi+1} (${kids[wi]})`);cur.elite={s:elite,idx:wi,old:kids[wi]};kids[wi]=elite;}
+      else P('Элитизм: лучшая особь уже есть среди потомков');
+    }
+    P('');P('Новое поколение: '+kids.join(', '));P('');
+    cur.next=[...kids];cur.log=out.slice(ls).join('\n');
+    pop=kids;
+  }
+  return {gens,best,log:out.join('\n')};
+}
+
+/* ---------- score ---------- */
+let scoreOk=0,scoreAll=0;
+function updScore(){$('#scoreOk').textContent=scoreOk;$('#scoreAll').textContent=scoreAll;}
+function bindQuiz(q,onDone){
+  const ans=q.dataset.answer;const btns=q.querySelectorAll('.opts button');const ex=q.querySelector('.ex');
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    if(q.dataset.done)return;q.dataset.done='1';
+    const ok=b.dataset.k===ans;btns.forEach(x=>{x.disabled=true;if(x.dataset.k===ans)x.classList.add('right');});
+    if(!ok)b.classList.add('wrong');
+    ex.innerHTML=(ok?'<b class="ok">Верно.</b> ':'<b class="no">Не совсем.</b> ')+ex.innerHTML;ex.classList.add('show');
+    scoreAll++;if(ok)scoreOk++;updScore();if(onDone)onDone(ok);
+  }));
+}
+$$('section:not(#test) .quiz').forEach(q=>bindQuiz(q));
+
+/* ---------- hero animation ---------- */
+const hero=$('#heroCanvas');let heroState;
+function heroInit(){const r=mulberry32(Math.floor(Math.random()*1e9));heroState={rnd:r,pop:Array.from({length:6},()=>Math.floor(r()*16)),prev:null,t:1,gen:1,stable:0};}
+function heroStep(){
+  const s=heroState,r=s.rnd,f=b=>fA(b/B);const fit=s.pop.map(f),tot=fit.reduce((a,b)=>a+b,0);
+  const pick=()=>{let x=r()*tot;for(let i=0;i<6;i++){x-=fit[i];if(x<0)return s.pop[i];}return s.pop[5];};
+  const bi=fit.indexOf(Math.max(...fit));const kids=[s.pop[bi]];
+  while(kids.length<6){let a=toBits(pick()),b=toBits(pick());if(r()<.8){const k=1+Math.floor(r()*3);[a,b]=[a.slice(0,k)+b.slice(k),b.slice(0,k)+a.slice(k)];}
+    kids.push(a,b);}
+  const np=kids.slice(0,6).map((c,i)=>{if(i===0)return c;return [...(typeof c==='number'?toBits(c):c)].map(ch=>r()<.08?(ch==='1'?'0':'1'):ch).join('');}).map(c=>typeof c==='number'?c:parseInt(c,2));
+  s.prev=s.pop;s.pop=np;s.t=0;s.gen++;
+  if(new Set(np).size<=2)s.stable++;else s.stable=0;
+  if(s.stable>5)heroInit();
+}
+function heroDraw(){
+  const s=heroState,e=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,k=e(Math.min(1,s.t));
+  const pal=[css('--accent'),css('--accent-2'),css('--s3'),css('--good'),css('--accent'),css('--accent-2')];
+  const marks=s.pop.map((b,i)=>{const x1=b/B,x0=s.prev?s.prev[i]/B:x1;const x=x0+(x1-x0)*k;const y=fA(x0)+(fA(x1)-fA(x0))*k;return{x,y,color:pal[i],r:7,alpha:.8};});
+  drawFunction(hero,fA,marks);
+  const best=Math.max(...s.pop.map(b=>fA(b/B)));
+  $('#heroGen').textContent='Поколение '+s.gen;$('#heroBest').textContent='лучший f = '+fmt(best,3)+' (максимум на сетке '+fmt(Math.max(...Array.from({length:16},(_,b)=>fA(b/B))),3)+')';
+}
+heroInit();
+let lastT=0,acc=0;
+function heroLoop(ts){if(!lastT)lastT=ts;const dt=ts-lastT;lastT=ts;acc+=dt;heroState.t+=dt/700;if(acc>1500){acc=0;heroStep();}heroDraw();requestAnimationFrame(heroLoop);}
+if(reduceMotion){heroDraw();}else requestAnimationFrame(heroLoop);
+$('#heroRestart').addEventListener('click',()=>{heroInit();heroDraw();if(reduceMotion){for(let i=0;i<8;i++){}}});
+if(reduceMotion){hero.addEventListener('click',()=>{heroStep();heroState.t=1;heroDraw();});}
+
+/* ---------- why: brute force + hill climber ---------- */
+(function(){
+  function human(ms){
+    const s=ms/1000;if(s<1)return (ms).toFixed(0)+' мс';if(s<60)return s.toFixed(1)+' с';
+    const m=s/60;if(m<60)return m.toFixed(1)+' мин';const h=m/60;if(h<24)return h.toFixed(1)+' ч';
+    const d=h/24;if(d<365)return d.toFixed(1)+' дн.';const y=d/365.25;
+    if(y<1e6)return Math.round(y).toLocaleString('ru-RU')+' лет';
+    const e=Math.floor(Math.log10(y));return (y/10**e).toFixed(1)+'·10^'+e+' лет';
+  }
+  function upd(){
+    const Lb=+$('#bfL').value;$('#bfLv').textContent=Lb;
+    const n=2n**BigInt(Lb);const ms=Math.pow(2,Lb);const years=ms/1000/3600/24/365.25;
+    let cmp='';
+    if(Lb<=10)cmp='мгновенно';else if(years<1/365.25)cmp='можно подождать';else if(years<80)cmp='дольше, чем хочется ждать';else if(years<1.38e10)cmp='дольше человеческой жизни';else cmp='дольше возраста Вселенной (≈ 1.4·10^10 лет)';
+    $('#bfOut').innerHTML=`<div><div class="k">Вариантов 2<sup>${Lb}</sup></div><div class="v">${n.toLocaleString('ru-RU')}</div></div><div><div class="k">Время перебора</div><div class="v">${human(ms)}</div></div><div><div class="k">Итог</div><div class="v" style="font-size:16px">${cmp}</div></div>`;
+  }
+  $('#bfL').addEventListener('input',upd);upd();
+
+  const fv=Array.from({length:16},(_,b)=>fA(b/B)),gB=fv.indexOf(Math.max(...fv));
+  const climb=b=>{const path=[b];for(;;){const c=path[path.length-1];let nb=c;[c-1,c+1].forEach(n=>{if(n>=0&&n<=15&&fv[n]>fv[nb])nb=n;});if(nb===c)break;path.push(nb);}return path;};
+  let path=null,step=0,timer=null,allMode=null;
+  function draw(){
+    let marks=[];
+    if(allMode){allMode.forEach(([st,en])=>marks.push({b:st,r:5,color:en===gB?css('--good'):css('--bad'),alpha:.85}));marks.push({b:gB,r:9,hollow:true,color:css('--good'),label:'глобальный'});}
+    else if(path){path.slice(0,step+1).forEach((b,i)=>marks.push({b,r:i===step?9:4,color:i===step?css('--accent-2'):css('--muted'),label:i===step?'турист':undefined}));}
+    drawFunction($('#hcPlot'),fA,marks);
+  }
+  const nm=b=>`<code>${toBits(b)}</code> (x = ${fmt(b/B,3)}, f = ${fmt(fv[b],3)})`;
+  $('#hcStart').addEventListener('click',()=>{
+    clearInterval(timer);allMode=null;const st=Math.floor(Math.random()*16);path=climb(st);step=0;draw();
+    $('#hcOut').innerHTML=`Старт: ${nm(st)}. Турист смотрит на соседей и шагает туда, где выше…`;
+    const fin=()=>{const en=path[path.length-1];const ok=en===gB;
+      $('#hcOut').innerHTML=`Старт: ${nm(st)}. Путь: ${path.map(b=>'<code>'+toBits(b)+'</code>').join(' → ')}. Дальше во все стороны спуск, и турист остановился на ${nm(en)}. `+(ok?'<span class="chip good">повезло: это глобальный максимум</span>':`<span class="chip bad">застрял на локальном максимуме</span> Настоящая вершина: ${nm(gB)}.`);};
+    if(reduceMotion||path.length===1){step=path.length-1;draw();fin();return;}
+    timer=setInterval(()=>{step++;draw();if(step>=path.length-1){clearInterval(timer);fin();}},550);
+  });
+  $('#hcAll').addEventListener('click',()=>{
+    clearInterval(timer);path=null;allMode=[];for(let b=0;b<16;b++)allMode.push([b,climb(b).at(-1)]);draw();
+    const good=allMode.filter(x=>x[1]===gB).length;const traps=[...new Set(allMode.map(x=>x[1]).filter(e=>e!==gB))];
+    $('#hcOut').innerHTML=`Зелёные точки — старты, из которых турист дошёл до глобального максимума <code>${toBits(gB)}</code>. Красные — старты, из которых он застрял. Удачных стартов только <b>${good} из 16</b>. Остальные заканчиваются на ловушках: ${traps.map(nm).join(', ')}.`;
+  });
+  draw();window.__hcRedraw=draw;
+})();
+
+/* ---------- encoding stand ---------- */
+let enc='0111';
+const fvals=Array.from({length:16},(_,b)=>fA(b/B));const gBest=fvals.indexOf(Math.max(...fvals));
+function renderEnc(){
+  $('#encBits').innerHTML=[...enc].map((c,i)=>`<button type="button" class="bit ${c==='1'?'one':''}" data-i="${i}" aria-label="Бит ${i+1}, значение ${c}"><span class="idx">${8>>i}</span>${c}</button>`).join('');
+  const b=parseInt(enc,2),x=b/B;
+  $('#encCalc').innerHTML=`b = ${[...enc].map((c,i)=>`${c}·${8>>i}`).join(' + ')} = <b>${b}</b><br>x = ${b}/15 = <b>${fmt(x)}</b><br>f(x) = ${fmt(x)}·sin(6π·${fmt(x)}) + 0.5·cos(4π·${fmt(x)}) + 1 = <b>${fmt(fA(x))}</b>`;
+  $$('#encBits .bit').forEach(el=>el.addEventListener('click',()=>{const i=+el.dataset.i;const a=[...enc];a[i]=a[i]==='1'?'0':'1';enc=a.join('');renderEnc();}));
+  drawFunction($('#encPlot'),fA,[{b,label:enc}]);
+  $('#tiles').innerHTML=fvals.map((v,i)=>`<button type="button" class="tile ${i===b?'cur':''} ${i===gBest?'top':''}" data-b="${i}"><div class="tb">${toBits(i)}</div>x=${fmt(i/B,3)}<br>f=${fmt(v,3)}</button>`).join('');
+  $$('#tiles .tile').forEach(t=>t.addEventListener('click',()=>{enc=toBits(+t.dataset.b);renderEnc();}));
+}
+renderEnc();
+
+/* ---------- selection bar (method 2) ---------- */
+function segColor(i){return [css('--accent'),css('--accent-2'),css('--s3'),css('--good')][i];}
+function renderBar(){
+  const P=['0100','0110','1011','0001'],m=selMath(P);
+  $('#rbar').innerHTML=P.map((sp,i)=>`<div class="seg" style="width:${m.p[i]*100}%;background:${segColor(i)}">${m.p[i]>.08?'№'+(i+1)+' '+sp:''}</div>`).join('')+m.ptr.map((r,j)=>`<div class="rmark" style="left:${r*100}%"><span>r${j+1} = ${fmt(r,3)}</span></div>`).join('');
+  $('#rscale').innerHTML='<span style="left:0">0</span>'+m.cum.slice(0,-1).map(c=>`<span style="left:${c*100}%">${fmt(c,4)}</span>`).join('')+'<span style="left:100%">1</span>';
+}
+renderBar();
+
+/* ---------- crossover ---------- */
+let pa='0110',pb='0001',cut=3;
+function renderCx(anim){
+  const mk=(s,cls,id)=>{$(id).innerHTML=[...s].map((c,i)=>`<button type="button" class="bit ${cls} ${c==='1'?'one':''}" data-i="${i}" aria-label="Бит ${i+1}">${c}</button>`).join('');};
+  mk(pa,'','#pA');mk(pb,'b','#pB');
+  $$('#pA .bit').forEach(el=>el.addEventListener('click',()=>{const a=[...pa];a[+el.dataset.i]=a[+el.dataset.i]==='1'?'0':'1';pa=a.join('');renderCx(true);}));
+  $$('#pB .bit').forEach(el=>el.addEventListener('click',()=>{const a=[...pb];a[+el.dataset.i]=a[+el.dataset.i]==='1'?'0':'1';pb=a.join('');renderCx(true);}));
+  // insert cut markers
+  [['#pA'],['#pB']].forEach(([id])=>{const bitsEl=$(id).children;const m=document.createElement('span');m.className='cutline';$(id).insertBefore(m,bitsEl[cut]);});
+  const child=(x,y,clsX,clsY)=>[...x.slice(0,cut)].map((c,i)=>`<span class="bit ${clsX} ${c==='1'?'one':''} ${anim?'pop':''}" style="animation-delay:${i*60}ms">${c}</span>`).join('')+'<span class="cutline"></span>'+[...y.slice(cut)].map((c,i)=>`<span class="bit ${clsY} ${c==='1'?'one':''} ${anim?'pop':''}" style="animation-delay:${(cut+i)*60+120}ms">${c}</span>`).join('');
+  $('#cA').innerHTML=child(pa,pb,'','b');$('#cB').innerHTML=child(pb,pa,'b','');
+  const F=s=>'f = '+fmt(fA(parseInt(s,2)/B),3);
+  const c1=pa.slice(0,cut)+pb.slice(cut),c2=pb.slice(0,cut)+pa.slice(cut);
+  $('#pAf').textContent=F(pa);$('#pBf').textContent=F(pb);$('#cAf').textContent=c1+' · '+F(c1);$('#cBf').textContent=c2+' · '+F(c2);
+}
+$('#cutPt').addEventListener('input',e=>{cut=+e.target.value;$('#cutVal').textContent=cut;renderCx(true);});
+$('#coinBtn').addEventListener('click',()=>{const r=Math.random();$('#coinOut').innerHTML=r<.8?`r = ${fmt(r,3)} &lt; 0.8 → <span class="chip good">кроссовер выполнен</span>`:`r = ${fmt(r,3)} ≥ 0.8 → <span class="chip bad">кроссовера нет, потомки = копии</span>`;});
+renderCx(false);
+
+/* ---------- mutation ---------- */
+let mchr='0110';
+function renderMut(flips=[]){
+  $('#mBits').innerHTML=[...mchr].map((c,i)=>`<span class="bit ${c==='1'?'one':''} ${flips.includes(i)?'flash':''}"><span class="idx">бит ${i+1}</span>${c}</span>`).join('');
+}
+$('#pmR').addEventListener('input',e=>{$('#pmVal').textContent=(+e.target.value).toFixed(2);});
+let mutLines=[];
+$('#mutBtn').addEventListener('click',()=>{
+  const pm=+$('#pmR').value;const rs=[...mchr].map(()=>Math.random());const a=[...mchr];const flips=[];const before=mchr;
+  rs.forEach((r,i)=>{if(r<pm){const o=a[i];a[i]=o==='1'?'0':'1';flips.push(i);mutLines.unshift(`Мутация в особи №1, бит ${i+1} изменен с ${o} на ${a[i]}`);}});
+  if(!flips.length)mutLines.unshift(`Мутаций нет (все r ≥ ${pm.toFixed(2)})`);
+  mchr=a.join('');renderMut(flips);
+  $('#mutR').innerHTML='r по битам: '+rs.map((r,i)=>`<span class="chip ${r<pm?'bad':''}">${i+1}: ${r.toFixed(3)}</span>`).join(' ')+`  ${before} → <b>${mchr}</b>`;
+  $('#mutLog').textContent=mutLines.slice(0,12).join('\n');
+});
+renderMut();
+
+/* ---------- selection math helper ---------- */
+function selMath(P){
+  const fx=s=>fA(parseInt(s,2)/B);
+  const F=P.map(fx),n=P.length,S=F.reduce((a,b)=>a+b,0),av=S/n,p=F.map(v=>v/S),e=F.map(v=>v/av);
+  const fl=e.map(v=>Math.floor(v+1e-9)),fr=e.map((v,i)=>v-fl[i]);
+  const rest=n-fl.reduce((a,b)=>a+b,0);
+  const ord=[...fr.keys()].sort((a,b)=>fr[b]-fr[a]||a-b);
+  const extra=P.map(()=>0);for(let k=0;k<rest;k++)extra[ord[k]]++;
+  const cp=fl.map((v,i)=>v+extra[i]);
+  const cum=[];{let a=0;p.forEach(v=>{a+=v;cum.push(a);});}
+  const seg=r=>{const i=cum.findIndex(c=>r<c);return i<0?n-1:i;};
+  const ptr=P.map((_,j)=>(j+0.5)/n),sus=ptr.map(seg);
+  const susCp=P.map((_,i)=>sus.filter(x=>x===i).length);
+  const parents=[];cp.forEach((c,i)=>{for(let k=0;k<c;k++)parents.push(i);});
+  const sq=F.reduce((a,v)=>a+v*v,0),D=sq/n-av*av;
+  return {F,n,S,av,p,e,fl,fr,rest,ord,extra,cp,cum,seg,ptr,sus,susCp,parents,sq,D};
+}
+
+/* ---------- deterministic selection stand ---------- */
+(function(){
+  const P=['0100','0110','1011','0001'],m=selMath(P),f4=v=>fmt(v,4),f3=v=>fmt(v,3);
+  $('#dsTable').innerHTML='<tr><th>№</th><th>Хромосома</th><th class="r">f<sub>i</sub></th><th class="r">p<sub>i</sub> = f<sub>i</sub>/Σf</th><th class="r">e<sub>i</sub> = f<sub>i</sub>/f̄</th><th class="r">⌊e<sub>i</sub>⌋</th><th class="r">дробная часть</th><th class="r">Способ 1</th><th class="r">Способ 2</th></tr>'+
+    P.map((s,i)=>`<tr><td>${i+1}</td><td class="mono">${s}</td><td class="r">${f4(m.F[i])}</td><td class="r">${f4(m.p[i])}</td><td class="r">${f3(m.e[i])}</td><td class="r">${m.fl[i]}</td><td class="r">${f3(m.fr[i])}${m.extra[i]?' <span class="chip good">+1</span>':''}</td><td class="r"><b>${m.cp[i]}</b></td><td class="r"><b>${m.susCp[i]}</b></td></tr>`).join('')+
+    `<tr><td></td><td><b>Сумма</b></td><td class="r"><b>${f4(m.S)}</b></td><td class="r"><b>1.0000</b></td><td class="r"><b>${f3(m.e.reduce((a,b)=>a+b,0))}</b></td><td class="r"><b>${m.fl.reduce((a,b)=>a+b,0)}</b></td><td></td><td class="r"><b>4</b></td><td class="r"><b>4</b></td></tr>`;
+  const best=m.ord[0];
+  const bnd=P.map((sp,i)=>`кусок №${i+1} (<code>${sp}</code>): от ${f4(i?m.cum[i-1]:0)} до ${f4(i?m.cum[i-1]:0)} + ${f4(m.p[i])} = <b>${f4(m.cum[i])}</b>`).join('<br>');
+  const parts=m.ptr.map((r,j)=>`часть ${j+1}: [${fmt(j/4,2)}; ${fmt((j+1)/4,2)}) → середина <b>${fmt(r,3)}</b>`).join('<br>');
+  const hits=m.ptr.map((r,j)=>{const i=m.sus[j];return `${fmt(r,3)} лежит между ${f4(i?m.cum[i-1]:0)} и ${f4(m.cum[i])} → кусок №${i+1} (<code>${P[i]}</code>)`;}).join('<br>');
+  $('#dsText').innerHTML=`<p><b>Способ 1.</b> f̄ = Σf / N = ${f4(m.S)} / 4 = ${f4(m.av)}. Для <code>0110</code>: e = ${f4(m.F[1])} / ${f4(m.av)} = ${f3(m.e[1])}. Целые части дают ${m.fl.join(' + ')} = ${m.fl.reduce((a,b)=>a+b,0)} места, свободно 4 − ${m.fl.reduce((a,b)=>a+b,0)} = ${m.rest}. Самая большая дробная часть у <code>${P[best]}</code> (${f3(m.fr[best])}), она и получает оставшееся место.</p>
+  <p><b>Способ 2, шаг а — границы кусков.</b> Куски выкладываем подряд, каждая граница = предыдущая граница + длина следующего куска:<br>${bnd}</p>
+  <p><b>Шаг б — точки.</b> Нужно 4 места, поэтому делим отрезок на 4 равные части по 0.25 и в каждой берём середину. Отсюда формула r<sub>j</sub> = (j − 0.5) / N:<br>${parts}</p>
+  <p><b>Шаг в — на чей кусок попала каждая точка.</b><br>${hits}</p>
+  <p>Кусок <code>0110</code> длинный (${f4(m.p[1])}), на нём уместились две точки. Кусок <code>0100</code> короткий (${f4(m.p[0])}) и заканчивается раньше первой точки 0.125, поэтому ему не досталось ни одной.</p>
+  <p><b>Итог обоих способов:</b> родители ${m.parents.map(i=>'<code>'+P[i]+'</code>').join(', ')}.</p>`;
+  const parAvg=m.parents.reduce((a,i)=>a+m.F[i],0)/4;
+  $('#dsThm').innerHTML=`<b>На нашем примере.</b> Средний fitness всей популяции: (${m.F.map(f4).join(' + ')}) / 4 = <b>${f4(m.av)}</b>. Средний fitness родителей (способ 1): (${m.parents.map(i=>f4(m.F[i])).join(' + ')}) / 4 = <b>${f4(parAvg)}</b>. Слабую <code>0100</code> убрали, сильную <code>0110</code> взяли дважды, поэтому ${f4(parAvg)} &gt; ${f4(m.av)}.`;
+})();
+
+/* ---------- worked example ---------- */
+(function(){
+  const N=4,L=4,pc=.8,pm=.05,f4=v=>fmt(v,4),f3=v=>fmt(v,3);
+  const fx=s=>fA(parseInt(s,2)/B);
+  const pop=['0100','0110','1011','0001'];
+  const m=selMath(pop);
+  const par=m.parents.map(i=>pop[i]);
+  const pairs=[[par[0],par[3]],[par[1],par[2]]];
+  const cx=[{r:.35,k:3},{r:.91}];
+  const kids=[],cxi=[];
+  pairs.forEach(([A,Bp],n)=>{if(cx[n].r<pc){const k=cx[n].k,c1=A.slice(0,k)+Bp.slice(k),c2=Bp.slice(0,k)+A.slice(k);kids.push(c1,c2);cxi.push({A,B:Bp,k,yes:true,r:cx[n].r,c:[c1,c2]});}else{kids.push(A,Bp);cxi.push({A,B:Bp,yes:false,r:cx[n].r,c:[A,Bp]});}});
+  const mut={child:3,bit:1,r:.031};const before=kids[mut.child];const arr=[...before];const old=arr[mut.bit];arr[mut.bit]=old==='1'?'0':'1';kids[mut.child]=arr.join('');
+  const nfit=kids.map(fx);
+  const st=a=>({mx:Math.max(...a),mn:Math.min(...a),av:a.reduce((x,y)=>x+y,0)/a.length});
+  const s0=st(m.F),s1=st(nfit);
+  const best1=nfit.indexOf(s1.mx);
+  const allF=Array.from({length:16},(_,b)=>fA(b/B)),gB=allF.indexOf(Math.max(...allF));
+  const m2=selMath(kids);
+  const parAvg=m.parents.reduce((a,i)=>a+m.F[i],0)/N;
+  const decRow=s=>{const g=[...s].map(Number);return `${g[0]}·8 + ${g[1]}·4 + ${g[2]}·2 + ${g[3]}·1 = ${parseInt(s,2)}`;};
+  const popTbl=(P,F,hl)=>'<div class="tbl-wrap"><table><tr><th>№</th><th>Хромосома</th><th class="r">b</th><th class="r">x = b/15</th>'+(F?'<th class="r">f(x)</th>':'')+'</tr>'+P.map((s,i)=>`<tr class="${hl===i?'hl':''}"><td>${i+1}</td><td>${bitsSm(s)}</td><td class="r">${parseInt(s,2)}</td><td class="r">${fmt(parseInt(s,2)/B)}</td>${F?`<td class="r">${fmt(F[i])}</td>`:''}</tr>`).join('')+'</table></div>';
+  const why=(t,h)=>`<div class="why"><b>${t}</b> ${h}</div>`;
+  const bitsCut=(s,k,cls)=>bitsSm(s.slice(0,k),cls)+'<b style="margin:0 4px">|</b>'+bitsSm(s.slice(k),cls);
+
+  const steps=[
+    {t:'0. Условие и план',h:`
+      <p><b>Дано:</b> f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1, x ∈ [0, 1], N = 4, L = 4, p<sub>c</sub> = 0.8, p<sub>m</sub> = 0.05.</p>
+      <p><b>Ищем:</b> x* = arg max f(b/15) по b = 0…15, то есть хромосому, при которой f самая большая.</p>
+      <p><b>Что делаем в этом разделе:</b> один полный проход (поколение 1 → поколение 2) вручную, а в конце коротко начало второго прохода. Всего мы делаем G = 30 проходов. Каждый следующий проход повторяет шаги 1–6 с новой популяцией.</p>
+      <p><b>Откуда берём «случайные» решения:</b></p>
+      <ul>
+        <li>родителей выбираем <b>по формуле</b> (способы 1 и 2 из §4), без случайности;</li>
+        <li>будет ли кроссовер, в какой точке и какие биты мутируют — эти числа <b>даны в условии</b>, как будто их выдал генератор. В программе их выдаёт <code>random()</code>.</li>
+      </ul>
+      ${why('Зачем фиксировать случайность.','Чтобы каждый мог проверить решение на бумаге и получить те же числа. Сам алгоритм в программе остаётся случайным.')}`},
+    {t:'1. Декодирование',h:`
+      <p>Стартовая популяция (обычно случайная): ${pop.map(s=>'<code>'+s+'</code>').join(', ')}.</p>
+      <p>Каждый бит — «монета» с весом 8, 4, 2, 1. Формулы:</p>
+      <div class="formula">b = 8·g₁ + 4·g₂ + 2·g₃ + 1·g₄,    x = b / (2<sup>L</sup> − 1) = b / 15</div>
+      <div class="tbl-wrap"><table><tr><th>№</th><th>Хромосома</th><th>b</th><th class="r">x = b / 15</th></tr>${pop.map((s,i)=>`<tr><td>${i+1}</td><td>${bitsSm(s)}</td><td class="mono">${decRow(s)}</td><td class="r">${parseInt(s,2)}/15 = ${fmt(parseInt(s,2)/B)}</td></tr>`).join('')}</table></div>
+      ${why('Зачем этот шаг.','Функция понимает только числа, а генетические операторы работают с битами. Декодирование связывает эти два мира.')}`},
+    {t:'2. Оценка fitness',h:`
+      <p>Подставляем каждое x в функцию. Считаем по частям, чтобы не ошибиться:</p>
+      <div class="formula">f(x) = x · sin(6πx) + 0.5 · cos(4πx) + 1</div>
+      <div class="tbl-wrap"><table><tr><th>№</th><th class="r">x</th><th class="r">sin(6πx)</th><th class="r">x·sin(6πx)</th><th class="r">cos(4πx)</th><th class="r">0.5·cos(4πx)</th><th class="r">f(x)</th></tr>${pop.map((s,i)=>{const x=parseInt(s,2)/B,a=Math.sin(6*Math.PI*x),c=Math.cos(4*Math.PI*x);return `<tr class="${i===m.F.indexOf(s0.mx)?'hl':''}"><td>${i+1}</td><td class="r">${f4(x)}</td><td class="r">${f4(a)}</td><td class="r">${f4(x*a)}</td><td class="r">${f4(c)}</td><td class="r">${f4(.5*c)}</td><td class="r"><b>${f4(m.F[i])}</b></td></tr>`;}).join('')}</table></div>
+      <p style="margin-top:12px">Пример для №2: f(0.4) = 0.4 · ${f4(Math.sin(6*Math.PI*.4))} + 0.5 · ${f4(Math.cos(4*Math.PI*.4))} + 1 = ${f4(.4*Math.sin(6*Math.PI*.4))} + ${f4(.5*Math.cos(4*Math.PI*.4))} + 1 = ${f4(m.F[1])}.</p>
+      <p><b>Статистика поколения 1:</b></p>
+      <div class="formula">f<sub>max</sub> = ${f4(s0.mx)},  f<sub>min</sub> = ${f4(s0.mn)},  f̄ = (${m.F.map(f4).join(' + ')}) / 4 = ${f4(m.S)} / 4 = ${f4(s0.av)}</div>
+      ${why('Зачем этот шаг.','Fitness — единственное, что алгоритм знает о задаче. Все дальнейшие решения (кого скрещивать) принимаются только по этим числам.')}`},
+    {t:'3. Отбор родителей',h:`
+      <p><b>3а. Доли.</b> Σf = ${f4(m.S)}. Доля каждой особи p<sub>i</sub> = f<sub>i</sub> / Σf: ${pop.map((s,i)=>`${s}: ${f4(m.F[i])} / ${f4(m.S)} = ${f4(m.p[i])}`).join('; ')}.</p>
+      <p><b>3б. Ожидаемое число копий</b> e<sub>i</sub> = f<sub>i</sub> / f̄ = f<sub>i</sub> / ${f4(m.av)} (сколько раз особь «заслуживает» стать родителем):</p>
+      <div class="tbl-wrap"><table><tr><th>№</th><th>Хромосома</th><th class="r">e<sub>i</sub></th><th class="r">⌊e<sub>i</sub>⌋</th><th class="r">дробная часть</th><th class="r">мест</th></tr>${pop.map((s,i)=>`<tr><td>${i+1}</td><td class="mono">${s}</td><td class="r">${f4(m.F[i])} / ${f4(m.av)} = ${f3(m.e[i])}</td><td class="r">${m.fl[i]}</td><td class="r">${f3(m.fr[i])}${m.extra[i]?' ← наибольшая':''}</td><td class="r"><b>${m.cp[i]}</b></td></tr>`).join('')}<tr><td></td><td>Сумма</td><td class="r">${f3(m.e.reduce((a,b)=>a+b,0))}</td><td class="r">${m.fl.reduce((a,b)=>a+b,0)}</td><td></td><td class="r"><b>4</b></td></tr></table></div>
+      <p style="margin-top:12px"><b>Способ 1:</b> целые части дают ${m.fl.reduce((a,b)=>a+b,0)} места, осталось R = ${m.rest}. Оставшееся место получает особь с наибольшей дробной частью: <code>${pop[m.ord[0]]}</code>.</p>
+      <p><b>Способ 2 (тот же результат другим путём).</b> Выкладываем доли подряд на отрезок [0; 1): границы кусков ${m.cum.map(f4).join(', ')} (каждая = предыдущая + доля следующей особи). Делим отрезок на 4 равные части и берём их середины: 0.125, 0.375, 0.625, 0.875. Смотрим, на чей кусок попала каждая середина: ${m.ptr.map((r,j)=>{const i=m.sus[j];return `${fmt(r,3)} → <code>${pop[i]}</code>`;}).join(', ')}. Длинный кусок <code>0110</code> накрыл две середины, короткий <code>0100</code> — ни одной.</p>
+      <p><b>Родители:</b> ${par.map(s=>'<code>'+s+'</code>').join(', ')}.</p>
+      <p>Проверим утверждение 3 из §4: средний fitness родителей = (${m.parents.map(i=>f4(m.F[i])).join(' + ')}) / 4 = ${f4(parAvg)}. Это больше, чем средний fitness всей популяции ${f4(m.av)}.</p>
+      ${why('Зачем этот шаг.','Отбор — это «давление»: гены хороших особей размножаются, гены плохих исчезают. Здесь <code>0100</code> с f = '+f4(m.F[0])+' не оставила потомства.')}`},
+    {t:'4. Пары',h:`
+      <p>Правило: выписываем родителей по порядку и ставим в пару <b>первого с последним, второго с предпоследним</b>. Это правило разводит две копии одной особи по разным парам.</p>
+      <div class="formula">пара 1 = (${pairs[0][0]}, ${pairs[0][1]}),   пара 2 = (${pairs[1][0]}, ${pairs[1][1]})</div>
+      ${why('Зачем разводить одинаковых.','Скрещивание <code>0110</code> с <code>0110</code> даёт опять <code>0110</code> при любой точке разреза. Такая пара ничего нового не создаёт.')}`},
+    {t:'5. Кроссовер',h:`
+      <p>Правило: для каждой пары берём число r. Если r &lt; p<sub>c</sub> = 0.8, скрещиваем в точке k, иначе потомки копируют родителей. Формулы для точки k:</p>
+      <div class="formula">потомок 1 = A[1..k] + B[k+1..L],   потомок 2 = B[1..k] + A[k+1..L]</div>
+      <p>Сколько пар в среднем скрещивается: (N/2) · p<sub>c</sub> = 2 · 0.8 = 1.6. Точка k выбирается из {1, 2, 3}, каждая с вероятностью 1/3.</p>
+      ${cxi.map((c,n)=>`<p><b>Пара ${n+1}: ${c.A} × ${c.B}.</b> r = ${c.r} ${c.yes?`&lt; 0.8 → скрещиваем, k = ${c.k}.`:`≥ 0.8 → не скрещиваем, потомки = копии родителей.`}</p>${c.yes?`<div class="row" style="gap:10px;margin-bottom:12px">${bitsCut(c.A,c.k,'')} <span>×</span> ${bitsCut(c.B,c.k,'b')} <span>→</span> ${bitsSm(c.A.slice(0,c.k))}${bitsSm(c.B.slice(c.k),'b')} <span>и</span> ${bitsSm(c.B.slice(0,c.k),'b')}${bitsSm(c.A.slice(c.k))}</div>`:''}<p>Потомки: <code>${c.c[0]}</code> (f = ${f4(fx(c.c[0]))}) и <code>${c.c[1]}</code> (f = ${f4(fx(c.c[1]))}).</p>`).join('')}
+      ${why('Главный момент примера.','«Голова» <code>011</code> от <code>0110</code> и последний бит <code>1</code> от <code>0001</code> дали <code>0111</code>, f = '+f4(fx('0111'))+'. Ни один из родителей таким не был, а потомок оказался лучшей точкой из всех 16. Ради этого и нужен кроссовер.')}`},
+    {t:'6. Мутация',h:`
+      <p>Правило: каждый из N · L = 16 битов инвертируется, если его число r &lt; p<sub>m</sub> = 0.05.</p>
+      <div class="thm"><div class="th">Математика мутации</div>
+        <p>Число мутаций за поколение — это число «успехов» в 16 независимых попытках с вероятностью 0.05. Поэтому:</p>
+        <div class="formula" style="margin:4px 0">E[мутаций] = N · L · p<sub>m</sub> = 16 · 0.05 = 0.8</div>
+        <div class="formula" style="margin:4px 0">P(хромосома без мутаций) = (1 − p<sub>m</sub>)<sup>L</sup> = 0.95<sup>4</sup> = ${f4(Math.pow(.95,4))}</div>
+        <div class="formula" style="margin:4px 0">P(в поколении нет ни одной мутации) = 0.95<sup>16</sup> = ${f4(Math.pow(.95,16))}</div>
+        <p style="margin:0">То есть примерно в 44% поколений мутаций нет вообще, а в остальных чаще всего бывает одна.</p>
+      </div>
+      <p>В условии: из 16 чисел только одно меньше 0.05 — r = ${mut.r} у особи №${mut.child+1}, бит ${mut.bit+1}.</p>
+      <div class="row" style="gap:10px;margin-bottom:10px">${bitsSm(before)} <span>→</span> ${bitsSm(kids[mut.child])} <span class="kv">бит ${mut.bit+1}: ${old} → ${arr[mut.bit]}</span></div>
+      <p>f: ${f4(fx(before))} → ${f4(nfit[mut.child])}. Здесь мутация помогла, но чаще случайное изменение портит хорошую особь.</p>
+      ${why('Зачем этот шаг.','Мутация приносит то, чего не было ни у одного родителя. Без неё популяция может навсегда потерять нужный бит.')}`},
+    {t:'7. Итог прохода',h:`
+      <p><b>Новая популяция (поколение 2):</b></p>
+      ${popTbl(kids,nfit,best1)}
+      <div class="tbl-wrap" style="margin-top:12px"><table><tr><th></th><th class="r">f<sub>max</sub></th><th class="r">f<sub>min</sub></th><th class="r">f̄</th></tr><tr><td>Поколение 1</td><td class="r">${f4(s0.mx)}</td><td class="r">${f4(s0.mn)}</td><td class="r">${f4(s0.av)}</td></tr><tr class="hl"><td>Поколение 2</td><td class="r">${f4(s1.mx)}</td><td class="r">${f4(s1.mn)}</td><td class="r">${f4(s1.av)}</td></tr></table></div>
+      <canvas class="plot" id="exPlot" style="margin-top:12px"></canvas>
+      <p class="muted" style="font-size:14px">Кольца — поколение 1, закрашенные точки — поколение 2.</p>
+      <p><b>Лучшая за всё время после прохода 1:</b> <code>${kids[best1]}</code>, x = ${fmt(parseInt(kids[best1],2)/B)}, f = ${f4(s1.mx)}. Полный перебор 16 значений даёт максимум ${f4(allF[gB])} при <code>${toBits(gB)}</code>: ${toBits(gB)===kids[best1]?'совпадает':'пока не совпадает'}.</p>
+      <h3>Что дальше: начало прохода 2</h3>
+      <p>Повторяем шаги с новой популяцией. f̄ = ${f4(m2.av)}, ожидаемые копии e<sub>i</sub> = f<sub>i</sub> / ${f4(m2.av)}:</p>
+      <div class="tbl-wrap"><table><tr><th>Хромосома</th><th class="r">f</th><th class="r">e</th><th class="r">мест</th></tr>${kids.map((s,i)=>`<tr><td class="mono">${s}</td><td class="r">${f4(m2.F[i])}</td><td class="r">${f3(m2.e[i])}</td><td class="r">${m2.cp[i]}</td></tr>`).join('')}</table></div>
+      <p style="margin-top:10px">Все e близки к 1, поэтому каждая особь получает одно место. Дисперсия упала с ${f4(m.D)} до ${f4(m2.D)}: особи стали похожи, и отбор почти перестал различать их (утверждение 3). Дальше прогресс зависит в основном от кроссовера и мутации.</p>
+      ${why('Сколько ещё проходов.','Мы взяли G = 30. Мы повторяем шаги 1–6 ещё 29 раз и после каждого прохода обновляем f<sub>best</sub>. Ответом будет лучшая особь за все 30 проходов. Как это выглядит целиком, показано в следующем разделе.')}`,after:()=>drawFunction($('#exPlot'),fA,[...pop.map(s=>({b:parseInt(s,2),hollow:true,color:css('--muted'),r:8})),...kids.map(s=>({b:parseInt(s,2),color:css('--accent'),r:6}))])}
+  ];
+  const last=steps.length-1;
+  let cur=0,all=false;const nav=$('#stepsNav'),box=$('#steps');
+  box.innerHTML=steps.map((s,i)=>`<div class="step" data-i="${i}"><h3 style="margin-top:0">${s.t}</h3>${s.h}</div>`).join('');
+  nav.innerHTML=steps.map((s,i)=>`<button type="button" data-i="${i}">${s.t}</button>`).join('');
+  function show(){
+    $$('#steps .step').forEach((el,i)=>el.classList.toggle('show',all||i===cur));
+    $$('#stepsNav button').forEach((b,i)=>{b.classList.toggle('on',!all&&i===cur);b.classList.toggle('done',i<cur);});
+    $('#exStand').classList.toggle('all-steps',all);
+    $('#stepAll').textContent=all?'Пошаговый режим':'Показать все шаги';
+    $('#stepNext').disabled=cur===last&&!all;
+    if(all||cur===last)requestAnimationFrame(steps[last].after);
+  }
+  $$('#stepsNav button').forEach(b=>b.addEventListener('click',()=>{all=false;cur=+b.dataset.i;show();}));
+  $('#stepNext').addEventListener('click',()=>{all=false;if(cur<last)cur++;show();});
+  $('#stepPrev').addEventListener('click',()=>{all=false;if(cur>0)cur--;show();});
+  $('#stepAll').addEventListener('click',()=>{all=!all;show();});
+  show();
+  window.__exRedraw=()=>{if(all||cur===last)steps[last].after();};
+})();
+$('#ansBtn').addEventListener('click',()=>{
+  const a=$('#ans1').value.trim(),b=$('#ans2').value.trim();const ok=(a==='0010'&&b==='0100')||(a==='0100'&&b==='0010');
+  $('#ansFb').className='fb '+(ok?'ok':'no');
+  $('#ansFb').innerHTML=ok?'Верно: 00|00 × 01|10 → 00 + 10 = <b>0010</b> и 01 + 00 = <b>0100</b>. Оба потомка (f ≈ 1.026 и 0.257) хуже родителей (1.500 и 1.535): кроссовер может и испортить хорошие хромосомы. Поэтому существует элитизм.':(/^[01]{4}$/.test(a)&&/^[01]{4}$/.test(b)?'Пока нет. Разрежьте обоих родителей после второго бита и поменяйте хвосты.':'Введите две строки по 4 символа из 0 и 1.');
+});
+
+/* ---------- full run ---------- */
+(function(){
+  const G=30,FR=runGA({N:4,pc:.8,pm:.05,G,f:fA,seed:80,elitism:false,sel:"copies"});
+  const gens=FR.gens;const fv=Array.from({length:16},(_,b)=>fA(b/B));const gmax=Math.max(...fv),gStar=toBits(fv.indexOf(gmax));
+  const firstFound=gens.findIndex(g=>g.pop.includes(gStar));
+  let gi=0,timer=null;
+  const fxs=s=>fA(parseInt(s,2)/B);
+  const seg=(s,k,cls)=>'<span class="chrom">'+(k?bitsSm(s.slice(0,k),cls)+'<span class="cutline"></span>'+bitsSm(s.slice(k),cls):bitsSm(s,cls))+'</span>';
+  const ch=h=>'<span class="chrom">'+h+'</span>';
+  function origin(i){ // origin of individual i in generation gi (from operators of gi-1)
+    const pg=gens[gi-1];if(!pg)return '';const pr=pg.pairs[Math.floor(i/2)],second=i%2===1;
+    const parent=second?pg.pop[pr.ib]:pg.pop[pr.ia];
+    const m=pg.muts.filter(x=>x.k===i);
+    let t=pr.cx&&pg.pop[pr.ia]===pg.pop[pr.ib]?`кроссовер одинаковых родителей ${parent} × ${parent} (он ничего не меняет)`:pr.cx?`кроссовер пары ${Math.floor(i/2)+1} (k = ${pr.k}) родителей ${pg.pop[pr.ia]} и ${pg.pop[pr.ib]}`:`копия родителя ${parent} (кроссовер не сработал)`;
+    if(m.length)t+=`, затем мутация бита ${m.map(x=>x.j+1).join(', ')}`;
+    return t;
+  }
+  function render(){
+    const g=gens[gi],prev=gens[gi-1];
+    $('#frGen').textContent=`Поколение ${gi+1} / ${G}`;$('#frSlider').value=gi+1;
+    const cnt={};g.pop.forEach(s=>{cnt[s]=(cnt[s]||0)+1;});
+    const marks=[];if(prev){const pc={};prev.pop.forEach(s=>{pc[s]=(pc[s]||0)+1;});Object.entries(pc).forEach(([s,c])=>marks.push({b:parseInt(s,2),hollow:true,color:css('--muted'),r:7+c*2}));}
+    Object.entries(cnt).forEach(([s,c])=>marks.push({b:parseInt(s,2),r:4+c*2,color:css('--accent'),label:c>1?`${s} ×${c}`:s}));
+    drawFunction($('#frPlot'),fA,marks);
+    $('#frPop').innerHTML='<tr><th>№</th><th>Хромосома</th><th class="r">b</th><th class="r">x</th><th class="r">fitness</th>'+(g.p?'<th class="r">p</th>':'')+'</tr>'+g.pop.map((s,i)=>`<tr class="${i===g.bestIdx?'hl':''}"><td>${i+1}</td><td>${bitsSm(s)}${s===gStar?' <span style="color:var(--s3)">★</span>':''}</td><td class="r">${parseInt(s,2)}</td><td class="r">${fmt(parseInt(s,2)/B)}</td><td class="r">${fmt(g.fit[i])}</td>${g.p?`<td class="r">${fmt(g.p[i],3)}</td>`:''}</tr>`).join('');
+    const d=v=>prev?` <span class="chip ${v>1e-9?'good':v<-1e-9?'bad':''}">${v>0?'+':''}${fmt(v,3)}</span>`:'';
+    $('#frStats').innerHTML=`max = ${fmt(g.max)}${prev?d(g.max-prev.max):''}<br>avg = ${fmt(g.avg)}${prev?d(g.avg-prev.avg):''}<br>min = ${fmt(g.min)} · разных хромосом: ${g.uniq} из 4`;
+    // commentary
+    const notes=[];
+    if(gi===0)notes.push(`<b>Старт.</b> Четыре случайные хромосомы. Лучшая из них ${g.pop[g.bestIdx]} (f = ${fmt(g.max,3)}) далека от максимума ${gStar} (f = ${fmt(gmax,3)}). Ни одна особь не лежит рядом с вершиной в районе x ≈ 0.47.`);
+    else{
+      if(g.max>prev.max+1e-9)notes.push(`<b>Максимум вырос</b> с ${fmt(prev.max,3)} до ${fmt(g.max,3)}. Лучшая особь №${g.bestIdx+1} (${g.pop[g.bestIdx]}) получилась так: ${origin(g.bestIdx)}.`);
+      else if(g.max<prev.max-1e-9)notes.push(`<b>Максимум упал</b> с ${fmt(prev.max,3)} до ${fmt(g.max,3)}. Лучшая особь прошлого поколения (${prev.pop[prev.bestIdx]}) не дошла до потомков без изменений. Элитизма нет, поэтому ГА её не защищает. Лучшее найденное значение всё равно записано в «лучший за всё время».`);
+      else notes.push(`<b>Максимум не изменился</b> (${fmt(g.max,3)}). Средний fitness ${g.avg>prev.avg+1e-9?'вырос: селекция размножила хорошие особи':g.avg<prev.avg-1e-9?'снизился: операторы породили слабых потомков':'не изменился'}.`);
+    }
+    if(gi===firstFound)notes.push(`<b style="color:var(--s3)">★ Впервые найден глобальный максимум ${gStar}</b>, x = ${fmt(parseInt(gStar,2)/B)}, f = ${fmt(gmax)}.`+' Происхождение: '+origin(g.pop.indexOf(gStar))+'.');
+    if(g.uniq===1)notes.push('Все особи одинаковые: разнообразие исчезло, кроссовер ничего нового не даст. Выйти из этой точки поможет только мутация.');
+    if(prev&&prev.muts.length)notes.push(`Мутаций на переходе из поколения ${gi}: ${prev.muts.length} (в среднем ожидается 0.8).`);
+    $('#frNote').innerHTML=notes.join('<br>');
+    // operators
+    if(g.pairs){
+      $('#frOpsTitle').textContent=`Операторы: поколение ${gi+1} → поколение ${gi+2}`;
+      const mutSet={};g.muts.forEach(m=>{(mutSet[m.k]=mutSet[m.k]||[]).push(m.j);});
+      let h=`<p style="font-size:15px">Отбор (способ 1): e = f / f̄ = [${g.e.map(v=>fmt(v,3)).join(', ')}]${g.shift?' (со сдвигом)':''} → мест [${g.cp.join(', ')}]. Пары: первый родитель с последним, второй с предпоследним.</p>`;
+      g.pairs.forEach((pr,n)=>{const A=g.pop[pr.ia],Bp=g.pop[pr.ib];
+        h+=`<div class="pairrow"><span class="lbl">Пара ${n+1}</span>${seg(A,pr.k,'')}<span class="op">особь №${pr.ia+1}</span><span class="op">×</span>${seg(Bp,pr.k,'b')}<span class="op">особь №${pr.ib+1}</span><span class="op">→</span>`+
+        (pr.cx?`${ch(bitsSm(A.slice(0,pr.k))+bitsSm(Bp.slice(pr.k),'b'))} <span class="op">и</span> ${ch(bitsSm(Bp.slice(0,pr.k),'b')+bitsSm(A.slice(pr.k)))}<span class="chip good">кроссовер, k = ${pr.k} (r = ${fmt(pr.rc,2)} &lt; 0.8)</span>`:`${ch(bitsSm(A))} <span class="op">и</span> ${ch(bitsSm(Bp,'b'))}<span class="chip">без кроссовера (r = ${fmt(pr.rc,2)} ≥ 0.8)</span>`)+`</div>`;});
+      h+=`<div class="pairrow"><span class="lbl">Мутация</span>${g.muts.length?g.muts.map(m=>`<span class="kv" style="font-size:14px">Мутация в особи №${m.k+1}, бит ${m.j+1} изменен с ${m.from} на ${m.to}</span>`).join('<br>'):'<span class="op">ни одно из 16 случайных чисел не оказалось меньше 0.05, мутаций нет</span>'}</div>`;
+      h+=`<div class="pairrow"><span class="lbl">Итог</span>${g.next.map((s,i)=>'<span class="bits">'+[...s].map((c,j)=>`<span class="bit sm ${c==='1'?'one':''} ${(mutSet[i]||[]).includes(j)?'mut':''}">${c}</span>`).join('')+'</span>').join(' ')}<span class="op">← поколение ${gi+2} (красная рамка = мутировавший бит)</span></div>`;
+      $('#frOps').innerHTML=h;
+    }else{
+      $('#frOpsTitle').textContent='Итог полного прохода';
+      const b=FR.best;
+      $('#frOps').innerHTML=`<div class="result"><div><div class="k">Лучшая хромосома</div><div class="v">${b.s}</div></div><div><div class="k">x*</div><div class="v">${fmt(parseInt(b.s,2)/B)}</div></div><div><div class="k">f(x*)</div><div class="v">${fmt(b.f)}</div></div><div><div class="k">Впервые найдена</div><div class="v">пок. ${b.gen}</div></div></div><p>Последнее поколение: ${g.pop.map(s=>bitsSm(s)).join(' ')}. Популяция сошлась к максимуму: ${g.pop.filter(s=>s===gStar).length} из 4 особей равны ${gStar}.</p><div class="why"><b>Проверка перебором.</b> Среди всех 16 значений максимум f = ${fmt(gmax)} достигается при ${gStar} (x = 7/15 ≈ 0.4667). Ответ ГА совпадает. На непрерывной оси настоящий максимум лежит чуть в стороне, но 4 бита дают только шаг 1/15, и точнее ответ быть не может.</div>`;
+    }
+    drawLines($('#frChart'),[{values:gens.map(x=>x.min),color:css('--muted'),width:1.5},{values:gens.map(x=>x.avg),color:css('--accent-2')},{values:gens.map(x=>x.max),color:css('--accent'),width:2.4,area:true},{values:gens.map(x=>x.bestEver),color:css('--s3'),dash:[5,4],width:1.8}],{marker:gi});
+    $('#frLog').textContent=g.log||'';
+  }
+  const go=i=>{gi=clamp(i,0,G-1);render();};
+  const stop=()=>{if(timer){clearInterval(timer);timer=null;$('#frPlay').textContent='▶ Проиграть';}};
+  $('#frFirst').addEventListener('click',()=>{stop();go(0);});
+  $('#frLast').addEventListener('click',()=>{stop();go(G-1);});
+  $('#frPrev').addEventListener('click',()=>{stop();go(gi-1);});
+  $('#frNext').addEventListener('click',()=>{stop();go(gi+1);});
+  $('#frSlider').addEventListener('input',e=>{stop();go(+e.target.value-1);});
+  $('#frPlay').addEventListener('click',()=>{if(timer){stop();return;}if(gi>=G-1)gi=-1;$('#frPlay').textContent='❚❚ Пауза';timer=setInterval(()=>{if(gi>=G-1){stop();return;}go(gi+1);},1600);});
+  render();window.__frRedraw=render;
+})();
+
+/* ---------- simulator ---------- */
+const FUNCS=[fA,x=>1+0.5*(1-x)*Math.sin(5*Math.PI*x)+0.4*x,x=>0.6*Math.sin(3*Math.PI*x)+x];
+function parseExpr(src){
+  let e=src.replace(/\^/g,'**').replace(/\bln\s*\(/g,'log(').replace(/π/g,'pi').replace(/\bpi\b/gi,'PI').replace(/\be\b(?!\s*\()/g,'E');
+  if(/[^0-9x+\-*/().,\sA-Za-z_]/.test(e))throw new Error('Недопустимые символы в формуле');
+  const allowed=new Set(['x','sin','cos','tan','exp','sqrt','abs','log','PI','E','pow','min','max','atan','asin','acos','sinh','cosh','tanh','log10','floor','ceil']);
+  (e.match(/[A-Za-z_]\w*/g)||[]).forEach(w=>{if(!allowed.has(w))throw new Error('Неизвестное имя: '+w);});
+  e=e.replace(/\b(sin|cos|tan|exp|sqrt|abs|log|pow|min|max|atan|asin|acos|sinh|cosh|tanh|log10|floor|ceil|PI|E)\b/g,'Math.$1');
+  const fn=new Function('x','return ('+e+');');
+  for(let b=0;b<=B;b++){const v=fn(b/B);if(!Number.isFinite(v))throw new Error('f(x) не определена при x = '+fmt(b/B));}
+  return fn;
+}
+$('#sF').addEventListener('change',e=>{$('#exprWrap').style.display=e.target.value==='custom'?'flex':'none';});
+$$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const [pc,pm]=b.dataset.preset.split(',');$('#sPc').value=pc;$('#sPm').value=pm;$('#sN').value=4;$('#sG').value=30;runSim();}));
+$$('.tabs button').forEach(b=>b.addEventListener('click',()=>{$$('.tabs button').forEach(x=>x.classList.toggle('on',x===b));$$('.tabpane').forEach(p=>p.classList.toggle('on',p.id===b.dataset.tab));if(b.dataset.tab==='tPlot')drawGen();}));
+let simRes=null,simF=fA;
+function runSim(){
+  $('#simErr').textContent='';
+  let N=Math.round(+$('#sN').value),pc=+$('#sPc').value,pm=+$('#sPm').value,G=Math.round(+$('#sG').value),seed=Math.round(+$('#sSeed').value)||1;
+  const errs=[];if(!(N>=2&&N<=20))errs.push('N должно быть от 2 до 20');if(!(pc>=0&&pc<=1))errs.push('pc — от 0 до 1');if(!(pm>=0&&pm<=1))errs.push('pm — от 0 до 1');if(!(G>=30))errs.push('G не меньше 30');
+  if(G>500)errs.push('G не больше 500');
+  if(errs.length){$('#simErr').textContent='Исправьте: '+errs.join('; ')+'.';return;}
+  const fv=$('#sF').value;
+  try{simF=fv==='custom'?parseExpr($('#sExpr').value):FUNCS[+fv];}catch(e){$('#simErr').textContent=e.message+'. Пример: exp(-x)*sin(5*pi*x)';return;}
+  simRes=runGA({N,pc,pm,G,f:simF,seed,elitism:$('#sElite').checked,sel:$('#sSel').value});
+  const g=simRes.gens,last=g[g.length-1];
+  const allF=Array.from({length:16},(_,b)=>simF(b/B)),gmax=Math.max(...allF),gb=allF.indexOf(gmax);
+  const lb=last.pop[last.bestIdx];
+  const found=Math.abs(simRes.best.f-gmax)<1e-12;
+  $('#simResult').innerHTML=`<div><div class="k">Лучшая хромосома за запуск</div><div class="v">${simRes.best.s}</div></div><div><div class="k">x*</div><div class="v">${fmt(parseInt(simRes.best.s,2)/B)}</div></div><div><div class="k">f(x*)</div><div class="v">${fmt(simRes.best.f)}</div></div><div><div class="k">Впервые найдена</div><div class="v">пок. ${simRes.best.gen}</div></div><div><div class="k">Лучшая в последнем пок.</div><div class="v">${lb} · ${fmt(last.max,3)}</div></div><div><div class="k">Перебор 16 точек</div><div class="v">${toBits(gb)} · ${fmt(gmax,3)} ${found?'<span class="chip good">совпало</span>':'<span class="chip bad">не найден</span>'}</div></div>`;
+  drawSimChart();
+  $('#simLog').textContent=`Параметры: N=${N}, L=4, pc=${pc}, pm=${pm}, G=${G}, seed=${seed}, элитизм=${$('#sElite').checked?'да':'нет'}\nОтбор: ${$('#sSel').value==='sus'?'способ 2 (равный шаг)':'способ 1 (целая часть + остаток)'}, пары «первый с последним»; кроссовер: одноточечный (точка 1..3); мутация: побитовая.\n\n`+simRes.log+`\n════════ Итог ════════\nЛучшая хромосома: ${simRes.best.s} (b=${parseInt(simRes.best.s,2)}), x* = ${fmt(parseInt(simRes.best.s,2)/B)}, f(x*) = ${fmt(simRes.best.f)}, найдена в поколении ${simRes.best.gen}`;
+  $('#evoTable').innerHTML='<tr><th>Поколение</th><th>№ особи</th><th>Хромосома</th><th class="r">Десятичное</th><th class="r">x</th><th class="r">f(x)</th></tr>'+g.map((gg,gi)=>gg.pop.map((s,i)=>`<tr class="${i===0?'genstart':''} ${i===gg.bestIdx?'hl':''}"><td>${i===0?gi+1:''}</td><td>${i+1}</td><td class="mono">${s}</td><td class="r">${parseInt(s,2)}</td><td class="r">${fmt(parseInt(s,2)/B)}</td><td class="r">${fmt(gg.fit[i])}</td></tr>`).join('')).join('');
+  $('#statTable').innerHTML='<tr><th>Поколение</th><th class="r">Мин. fitness</th><th class="r">Средний</th><th class="r">Макс.</th><th class="r">Лучший за всё время</th><th class="r">Разных хромосом</th></tr>'+g.map((gg,i)=>`<tr><td>${i+1}</td><td class="r">${fmt(gg.min)}</td><td class="r">${fmt(gg.avg)}</td><td class="r">${fmt(gg.max)}</td><td class="r">${fmt(gg.bestEver)}</td><td class="r">${gg.uniq}</td></tr>`).join('');
+  $('#genSlider').max=G;if(+$('#genSlider').value>G)$('#genSlider').value=1;drawGen();
+}
+function drawSimChart(){if(!simRes)return;const g=simRes.gens;drawLines($('#simChart'),[{values:g.map(x=>x.min),color:css('--muted'),width:1.5},{values:g.map(x=>x.avg),color:css('--accent-2')},{values:g.map(x=>x.max),color:css('--accent'),width:2.4,area:true},{values:g.map(x=>x.bestEver),color:css('--s3'),dash:[5,4],width:1.8}]);}
+function drawGen(){if(!simRes)return;const gi=+$('#genSlider').value-1;$('#genVal').textContent=gi+1;const gg=simRes.gens[gi];if(!$('#tPlot').classList.contains('on'))return;
+  const cnt={};gg.pop.forEach(s=>{cnt[s]=(cnt[s]||0)+1;});
+  drawFunction($('#genPlot'),simF,Object.entries(cnt).map(([s,c])=>({b:parseInt(s,2),r:5+c*2,label:c>1?`${s} ×${c}`:s,color:css('--accent')})));}
+$('#genSlider').addEventListener('input',drawGen);
+let playT=null;
+$('#genPlay').addEventListener('click',()=>{if(playT){clearInterval(playT);playT=null;$('#genPlay').textContent='▶ Проиграть';return;}const s=$('#genSlider');if(+s.value>=+s.max)s.value=1;$('#genPlay').textContent='❚❚ Пауза';playT=setInterval(()=>{if(+s.value>=+s.max){clearInterval(playT);playT=null;$('#genPlay').textContent='▶ Проиграть';return;}s.value=+s.value+1;drawGen();},350);});
+$('#runBtn').addEventListener('click',runSim);
+$('#copyLog').addEventListener('click',()=>{const t=$('#simLog').textContent;const ok=()=>{$('#copyFb').textContent='Лог скопирован';};
+  try{navigator.clipboard.writeText(t).then(ok,()=>{selectLog();});}catch(e){selectLog();}});
+function selectLog(){const r=document.createRange();r.selectNodeContents($('#simLog'));const s=window.getSelection();s.removeAllRanges();s.addRange(r);$('#copyFb').textContent='Лог выделен, нажмите Ctrl+C';}
+runSim();
+
+/* ---------- experiments ---------- */
+let cfgs=[{N:4,pc:.8,pm:.05,G:30},{N:4,pc:.4,pm:.01,G:30},{N:4,pc:.9,pm:.15,G:30}];
+const sCol=i=>[css('--accent'),css('--accent-2'),css('--s3')][i];
+function renderCfg(){
+  $('#cfgTable').innerHTML='<tr><th>Эксперимент</th><th>N</th><th>L</th><th>p<sub>c</sub></th><th>p<sub>m</sub></th><th>G</th></tr>'+cfgs.map((c,i)=>`<tr><td><span style="color:${sCol(i)}">■</span> ${i+1}</td>${['N','L','pc','pm','G'].map(k=>k==='L'?'<td>4</td>':`<td><input type="number" id="cfg-${i}-${k}" class="txt" style="width:80px" value="${c[k]}" step="${k==='N'||k==='G'?1:0.01}" aria-label="${k} эксперимента ${i+1}"></td>`).join('')}</tr>`).join('');
+}
+renderCfg();
+let expRes=null;
+function runExp(){
+  const R=300;const allF=Array.from({length:16},(_,b)=>fA(b/B)),gmax=Math.max(...allF);
+  const el=$('#eElite').checked;
+  cfgs=cfgs.map((c,i)=>{const g=k=>+$(`#cfg-${i}-${k}`).value;return{N:clamp(Math.round(g('N'))||4,2,20),pc:clamp(g('pc'),0,1),pm:clamp(g('pm'),0,1),G:clamp(Math.round(g('G'))||30,30,300)};});
+  renderCfg();
+  expRes=cfgs.map(c=>{
+    const succ=new Array(c.G).fill(0),avg=new Array(c.G).fill(0);let finalMax=0,finalSucc=0,endFound=0,uniq=0,firstGen=0,firstN=0,lost=0;
+    for(let r=1;r<=R;r++){const res=runGA({...c,f:fA,seed:r*7919+13,elitism:el,sel:$('#eSel').value,log:false});
+      res.gens.forEach((g,i)=>{if(Math.abs(g.bestEver-gmax)<1e-12)succ[i]++;avg[i]+=g.avg;});
+      const last=res.gens[c.G-1];finalMax+=last.max;uniq+=last.uniq;
+      const f=Math.abs(res.best.f-gmax)<1e-12;if(f){endFound++;firstGen+=res.best.gen;firstN++;if(Math.abs(last.max-gmax)>1e-12)lost++;}
+      if(Math.abs(last.max-gmax)<1e-12)finalSucc++;}
+    return{c,succ:succ.map(v=>100*v/R),avg:avg.map(v=>v/R),found:100*endFound/R,finalSucc:100*finalSucc/R,finalMax:finalMax/R,uniq:uniq/R,firstGen:firstN?firstGen/firstN:NaN,lost:endFound?100*lost/endFound:0};
+  });
+  drawExp();
+  $('#expTable').innerHTML='<tr><th>Эксп.</th><th>p<sub>c</sub> / p<sub>m</sub></th><th class="r">Нашли максимум хоть раз</th><th class="r">Максимум есть в последнем пок.</th><th class="r">Ср. поколение находки</th><th class="r">Ср. max последнего пок.</th><th class="r">Разных хромосом в конце</th></tr>'+expRes.map((e,i)=>`<tr><td><span style="color:${sCol(i)}">■</span> ${i+1}</td><td class="mono">N=${e.c.N}, ${e.c.pc} / ${e.c.pm}</td><td class="r">${e.found.toFixed(0)}%</td><td class="r">${e.finalSucc.toFixed(0)}%</td><td class="r">${fmt(e.firstGen,1)}</td><td class="r">${fmt(e.finalMax,3)}</td><td class="r">${fmt(e.uniq,2)} из ${e.c.N}</td></tr>`).join('');
+}
+function drawExp(){if(!expRes)return;
+  drawLines($('#expChart1'),expRes.map((e,i)=>({values:e.succ,color:sCol(i)})),{ymin:0,ymax:100,yfmt:v=>v.toFixed(0)});
+  drawLines($('#expChart2'),expRes.map((e,i)=>({values:e.avg,color:sCol(i)})));
+  $('#expLegend').innerHTML=expRes.map((e,i)=>`<span><i style="background:${sCol(i)}"></i>Эксп. ${i+1}: p<sub>c</sub>=${e.c.pc}, p<sub>m</sub>=${e.c.pm}, N=${e.c.N}</span>`).join('')+'<span>ось X — номер поколения</span>';}
+$('#expBtn').addEventListener('click',runExp);
+runExp();
+
+/* ---------- final test ---------- */
+const FQ=[
+ {q:'Сколько различных значений x можно закодировать хромосомой длины L = 4?',o:['4','8','16','15'],a:2,e:'2⁴ = 16 комбинаций: от 0000 до 1111.'},
+ {q:'Хромосома 0110 соответствует x =',o:['0.375','0.4','0.6','6'],a:1,e:'0110₂ = 6, x = 6/15 = 0.4. Значение 0.375 получилось бы при делении на 16.'},
+ {q:'N = 4, L = 4, pm = 0.05. Ожидаемое число мутировавших битов за поколение:',o:['0.05','0.2','0.8','4'],a:2,e:'16 битов · 0.05 = 0.8.'},
+ {q:'Что происходит при pc = 0?',o:['Алгоритм не работает вообще','Потомки копируют родителей, новое появляется только через мутацию','Каждая пара обязательно скрещивается','Отключается селекция'],a:1,e:'Селекция по-прежнему работает, но новые комбинации генов создаёт только мутация.'},
+ {q:'N = 4, оценки особей: 1, 1, 2, 4. Сколько мест получит особь с f = 2 по способу 1?',o:['0','2','1','4'],a:2,e:'f̄ = 8 / 4 = 2, e = 2 / 2 = 1: ровно одно место.'},
+ {q:'Родители 0111 и 1000, точка кроссовера k = 3. Потомки:',o:['0110 и 1001','0000 и 1111','0111 и 1000','1111 и 0000'],a:0,e:'011|1 × 100|0 → 011+0 = 0110 и 100+1 = 1001.'},
+ {q:'Что будет, если задать очень большое pm, например 0.5?',o:['Сходимость станет быстрее и надёжнее','Поиск превратится в почти случайный перебор','Популяция станет одинаковой','Ничего не изменится'],a:1,e:'При pm = 0.5 каждый бит становится «монеткой»: потомок почти не зависит от родителей, и отбор теряет смысл.'},
+ {q:'Почему максимальный fitness может уменьшиться от поколения к поколению?',o:['Это ошибка в программе','Лучшая особь может не попасть в потомки или испортиться при кроссовере и мутации (нет элитизма)','Из-за деления на 15','Так бывает только при pc = 1'],a:1,e:'Классический ГА без элитизма ничего не гарантирует лучшей особи. Элитизм переносит её в следующее поколение без изменений.'},
+ {q:'f(x) принимает отрицательные значения. Что делать при отборе пропорционально fitness?',o:['Ничего, отбор работает','Взять модуль |f|','Сдвинуть fitness: f − f_min + ε','Заменить отрицательные на 0 и удалить такие особи'],a:2,e:'Модуль искажает задачу: большое отрицательное значение станет «хорошим». Сдвиг сохраняет порядок особей.'},
+ {q:'«Преждевременная сходимость» — это когда…',o:['Алгоритм закончил раньше G поколений','Популяция стала однородной до того, как найден глобальный максимум','Fitness стал отрицательным','pc больше pm'],a:1,e:'Разнообразие исчезло, кроссовер копирует одинаковые хромосомы, и выбраться может помочь только мутация. Типично для малых pm.'}
+];
+let fqDone=0,fqOk=0;
+function renderFQ(){
+  fqDone=0;fqOk=0;
+  $('#finalQuiz').innerHTML=FQ.map((q,i)=>`<div class="quiz" data-answer="${'abcd'[q.a]}"><div class="qh">Вопрос ${i+1} из ${FQ.length}</div><div class="q">${q.q}</div><div class="opts">${q.o.map((o,j)=>`<button type="button" data-k="${'abcd'[j]}">${o}</button>`).join('')}</div><div class="ex">${q.e}</div></div>`).join('');
+  $$('#finalQuiz .quiz').forEach(q=>bindQuiz(q,ok=>{fqDone++;if(ok)fqOk++;updFS();}));updFS();
+}
+function updFS(){const t=FQ.length;let m=`Отвечено ${fqDone} из ${t}`;if(fqDone===t){const k=fqOk/t;m=`Результат: ${fqOk} из ${t} · `+(k>=.9?'отлично':k>=.7?'хорошо, повторите разделы с ошибками':'стоит перечитать §3–§7 и разобрать пример ещё раз');}else if(fqDone)m+=` · верно ${fqOk}`;$('#finalScore').textContent=m;}
+$('#resetTest').addEventListener('click',()=>{scoreAll-=fqDone;scoreOk-=fqOk;updScore();renderFQ();});
+renderFQ();
+
+/* ---------- nav + progress ---------- */
+$$('#toc a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();const t=document.getElementById(a.getAttribute('href').slice(1));if(t){const y=t.getBoundingClientRect().top+window.scrollY-56;window.scrollTo({top:y,behavior:reduceMotion?'auto':'smooth'});}}));
+const secs=$$('main section');
+function onScroll(){const h=document.documentElement;const p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);$('#progress').style.width=(p*100).toFixed(1)+'%';
+  let curId=secs[0].id;secs.forEach(s=>{if(s.getBoundingClientRect().top<120)curId=s.id;});$$('#toc a').forEach(a=>{const on=a.getAttribute('href')==='#'+curId;a.classList.toggle('on',on);if(on&&a.dataset.on!=='1'){a.scrollIntoView({block:'nearest',inline:'nearest'});}a.dataset.on=on?'1':'0';});}
+window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+/* ---------- redraw on resize / theme ---------- */
+function redrawAll(){renderEnc();renderBar();drawSimChart();drawGen();drawExp();if(window.__exRedraw)window.__exRedraw();if(window.__frRedraw)window.__frRedraw();if(window.__hcRedraw)window.__hcRedraw();if(reduceMotion)heroDraw();renderCfgColors();}
+function renderCfgColors(){}
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(redrawAll,150);});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll);
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+})();
+</script>
+</body>
+</html>

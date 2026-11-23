@@ -1,0 +1,999 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Нечёткая логика Мамдани</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: одна колонка-рассказ (идея → шаги) переходит в рабочую лабораторию из двух колонок: входы слева, вывод справа */
+:root{
+  --bg:#F1F4F2; --surface:#FFFFFF; --sunk:#E7ECE9; --ink:#15201D; --muted:#5B6965; --line:#D5DDD9;
+  --c0:#2F6BCB; --c1:#17927A; --c2:#D07A22; --accent:#B8325F; --accent-soft:rgba(184,50,95,.16);
+  --err:#C0392B; --ok:#17927A;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1413; --surface:#161E1C; --sunk:#1D2725; --ink:#E3EBE8; --muted:#93A29E; --line:#2B3633;
+  --c0:#6FA1EE; --c1:#48C7A3; --c2:#F0A458; --accent:#F0709A; --accent-soft:rgba(240,112,154,.2);
+  --err:#FF7B6B; --ok:#48C7A3; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1413; --surface:#161E1C; --sunk:#1D2725; --ink:#E3EBE8; --muted:#93A29E; --line:#2B3633;
+  --c0:#6FA1EE; --c1:#48C7A3; --c2:#F0A458; --accent:#F0709A; --accent-soft:rgba(240,112,154,.2);
+  --err:#FF7B6B; --ok:#48C7A3; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;padding-block:40px 64px;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,5.2vw,3.6rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:clamp(1.4rem,3vw,2rem);font-weight:700}
+h3{font-size:1.02rem;font-weight:500}
+p{margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:1.12rem;color:var(--muted);max-width:60ch}
+.prose{max-width:66ch;display:flex;flex-direction:column;gap:12px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+section{display:flex;flex-direction:column;gap:24px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.hero>*{min-width:0}
+.hero-text{display:flex;flex-direction:column;gap:18px}
+.fuzz{color:var(--accent);text-shadow:0 0 6px var(--accent-soft),0 0 18px var(--accent-soft);filter:blur(.6px);transition:filter .6s}
+.fuzz:hover{filter:blur(0)}
+@media (prefers-reduced-motion:reduce){.fuzz{transition:none}}
+.tea{display:flex;flex-direction:column;gap:16px}
+.tea-q{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.tea-q strong{font-family:var(--f-display);font-weight:500;font-size:1.1rem}
+.tea-t{font-family:var(--f-mono);font-size:1.6rem;font-variant-numeric:tabular-nums}
+.verdicts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.verdict{background:var(--sunk);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.verdict .k{font-size:.78rem;color:var(--muted)}
+.verdict .v{font-family:var(--f-display);font-size:1.15rem;font-weight:500}
+.meter{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.tea-note{font-size:.92rem;color:var(--muted)}
+
+/* concept blocks */
+.duo{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.duo .card{display:flex;flex-direction:column;gap:10px}
+.duo .card p{color:var(--muted);font-size:.95rem}
+.ex{font-family:var(--f-mono);font-size:.85rem;background:var(--sunk);border-radius:8px;padding:10px 12px;color:var(--ink);line-height:1.55}
+
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+.steps li{padding:20px 18px;display:flex;flex-direction:column;gap:8px;border-right:1px solid var(--line);min-width:0}
+.steps li:last-child{border-right:0}
+.steps .n{font-family:var(--f-mono);font-size:.78rem;color:var(--accent)}
+.steps p{font-size:.92rem;color:var(--muted)}
+.formula{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center}
+.formula .f{font-family:var(--f-mono);font-size:1.15rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.formula p{max-width:52ch;color:var(--muted)}
+
+/* lab */
+.lab-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;background:var(--sunk);padding:4px;border-radius:12px}
+.tab{font:inherit;font-size:.92rem;border:0;background:transparent;color:var(--muted);padding:8px 14px;border-radius:9px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.tab:focus-visible,.btn:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sysdesc{color:var(--muted);max-width:70ch}
+.lab{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.lab>*{min-width:0}
+.col{display:flex;flex-direction:column;gap:20px}
+.field{display:flex;flex-direction:column;gap:10px}
+.fhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.fhead label{font-weight:600}
+.fhead .rng{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.frow{display:flex;gap:12px;align-items:center}
+.frow input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.numwrap{display:flex;align-items:center;gap:6px;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:2px 10px 2px 2px}
+.numwrap input{width:5.5em;font:inherit;font-family:var(--f-mono);font-variant-numeric:tabular-nums;background:transparent;border:0;color:var(--ink);padding:6px 8px;text-align:right}
+.numwrap span{font-family:var(--f-mono);font-size:.82rem;color:var(--muted)}
+.numwrap.bad{border-color:var(--err)}
+.err{color:var(--err);font-size:.86rem}
+.chart svg{display:block;width:100%;height:auto}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-size:.82rem;border-radius:999px;padding:3px 10px;background:var(--sunk);color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.chip b{font-family:var(--f-mono);font-weight:500;color:var(--ink)}
+.chip .dot{width:8px;height:8px;border-radius:50%}
+.chip.zero{opacity:.55}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn{font:inherit;font-size:.92rem;font-weight:500;border-radius:9px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.btn:hover{border-color:var(--muted)}
+
+.result{display:flex;flex-direction:column;gap:14px}
+.res-num{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.res-num .big{font-family:var(--f-display);font-weight:700;font-size:clamp(2.4rem,6vw,3.4rem);line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.res-num .unit{font-family:var(--f-mono);color:var(--muted)}
+.pill{font-size:.82rem;border-radius:999px;padding:3px 12px;border:1px solid currentColor;font-weight:500}
+.res-text{font-size:1.02rem}
+.res-err{color:var(--err)}
+.lgd{display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+.lgd span{display:inline-flex;align-items:center;gap:6px}
+.lgd i{display:inline-block;width:16px;height:0;border-top:2px dashed var(--muted)}
+.lgd i.agg{border:0;height:10px;background:var(--accent-soft);border-top:2px solid var(--accent)}
+.lgd i.cg{border-top:2px solid var(--accent);width:2px;height:12px;border-top:0;background:var(--accent)}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-family:var(--f-mono);font-weight:500;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.off td{color:var(--muted)}
+tr.off .term{opacity:.6}
+.term{font-weight:600}
+.op{font-family:var(--f-mono);font-size:.75rem;padding:1px 6px;border-radius:5px;background:var(--sunk);color:var(--muted)}
+.op.or{color:var(--accent)}
+.sbar{display:flex;align-items:center;gap:8px;min-width:120px}
+.sbar .meter{flex:1}
+.calc{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);white-space:nowrap}
+
+.log{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.log li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline}
+.log .n{font-family:var(--f-mono);font-size:.78rem;color:var(--accent)}
+.log div{min-width:0}
+
+.svgt{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.ax{stroke:var(--line);stroke-width:1}
+.t0{stroke:var(--c0)} .t1{stroke:var(--c1)} .t2{stroke:var(--c2)}
+.a0{fill:var(--c0)} .a1{fill:var(--c1)} .a2{fill:var(--c2)}
+.mk{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:3 3}
+.agg{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.cg{stroke:var(--accent);stroke-width:2}
+.cgt{font-family:var(--f-mono);font-size:12px;fill:var(--accent);font-weight:500}
+.crisp{stroke:var(--muted);stroke-width:2;fill:none;stroke-dasharray:5 4}
+.soft{stroke:var(--accent);stroke-width:2.5;fill:none}
+
+.check td:first-child{font-weight:500}
+
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.g2>*,.g3>*{min-width:0}
+.wsteps{display:flex;flex-direction:column;gap:22px}
+.wstep{display:grid;grid-template-columns:170px 1fr;gap:24px;border-top:1px solid var(--line);padding-top:22px}
+.wstep>*{min-width:0}
+.wlabel{display:flex;flex-direction:column;gap:6px}
+.wlabel .n{font-family:var(--f-mono);font-size:.78rem;color:var(--accent)}
+.wbody{display:flex;flex-direction:column;gap:16px}
+.wbody>p{max-width:70ch}
+.calcs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-family:var(--f-mono);font-size:.84rem}
+.calcs li{display:flex;gap:10px;flex-wrap:wrap}
+.calcs .r{margin-left:auto;font-weight:500}
+.sub{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.sub h3{font-size:.95rem}
+.total{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:baseline;background:var(--sunk);border-radius:12px;padding:16px 18px}
+.total .big{font-family:var(--f-display);font-weight:700;font-size:1.9rem;color:var(--accent);font-variant-numeric:tabular-nums}
+.walk-top{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+tr.hl td{background:var(--accent-soft)}
+.apps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.apps .card{display:flex;flex-direction:column;gap:6px;padding:18px}
+.apps .card p{font-size:.9rem;color:var(--muted)}
+.shape-cap{font-size:.9rem;color:var(--muted)}
+.dm{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.dm .sub p{font-size:.9rem;color:var(--muted)}
+@media (max-width:900px){.g2,.g3,.dm{grid-template-columns:1fr}.apps{grid-template-columns:1fr 1fr}.wstep{grid-template-columns:1fr;gap:12px}}
+@media (max-width:480px){.apps{grid-template-columns:1fr}}
+
+.ao{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.ao>*{min-width:0}
+.ao .sub p{font-size:.95rem}
+.big-op{font-family:var(--f-display);font-size:1.6rem;font-weight:700}
+.play{display:grid;grid-template-columns:1fr 1.1fr;gap:24px;align-items:start}
+.play>*{min-width:0}
+.pin{display:flex;flex-direction:column;gap:6px}
+.pin .fhead span{font-family:var(--f-mono)}
+.pin input{accent-color:var(--accent);width:100%}
+.res-row{display:grid;grid-template-columns:110px 1fr 56px;gap:10px;align-items:center;font-size:.92rem}
+.res-row .mono{text-align:right}
+.res-row .meter{height:12px;border-radius:6px}
+.meter.or i{background:var(--c2)}
+.meter.a i{background:var(--c0)} .meter.b i{background:var(--c1)}
+.heat{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.heat figure{margin:0;display:flex;flex-direction:column;gap:6px}
+.heat figcaption{font-size:.82rem;color:var(--muted)}
+.why{font-size:.95rem;background:var(--sunk);border-radius:10px;padding:12px 14px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.tile .k{font-size:.8rem;color:var(--muted)}
+.tile .v{font-family:var(--f-display);font-size:1.5rem;font-weight:500;font-variant-numeric:tabular-nums}
+.fc-line{fill:none;stroke-width:2.5;stroke-linejoin:round}
+.fc-fact{stroke:var(--ink)} .fc-pred{stroke:var(--accent)}
+.fc-dot-f{fill:var(--ink)} .fc-dot-p{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+.fc-err{stroke:var(--accent);stroke-opacity:.35;stroke-width:6;stroke-linecap:round}
+.lgd i.fact{border-top:2.5px solid var(--ink)} .lgd i.pred{border-top:2.5px solid var(--accent)}
+.lgd i.err{border-top:6px solid var(--accent-soft);width:10px}
+.linkbtn{font:inherit;font-size:.8rem;background:none;border:0;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px}
+.howto{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;counter-reset:h}
+.howto li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:.9rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;min-width:0}
+.howto b{color:var(--ink);font-weight:600}
+.howto .n{font-family:var(--f-mono);font-size:.75rem;color:var(--accent)}
+.tomorrow{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
+.tomorrow>*{min-width:0}
+td.pos{color:var(--c2)} td.neg{color:var(--c0)}
+@media (max-width:900px){.ao,.play,.tomorrow{grid-template-columns:1fr}.tiles{grid-template-columns:1fr 1fr}.howto{grid-template-columns:1fr}}
+@media (max-width:480px){.heat{grid-template-columns:1fr}.res-row{grid-template-columns:90px 1fr 48px}}
+@media (max-width:900px){
+  .hero,.lab{grid-template-columns:1fr}
+  .duo{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr}
+  .steps li{border-right:0;border-bottom:1px solid var(--line)}
+  .steps li:last-child{border-bottom:0}
+}
+@media (max-width:480px){.verdicts{grid-template-columns:1fr}.wrap{gap:56px}.card{padding:16px}}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="hero-text">
+    <span class="eyebrow">Лабораторная · модель Мамдани</span>
+    <h1>Логика, которая умеет сказать <span class="fuzz">«скорее&nbsp;да»</span></h1>
+    <p class="lead">Обычный компьютер видит мир как 0 и 1. Человек говорит «довольно тепло», «почти полный», «не очень дорого». Нечёткая логика переводит такие слова в числа и делает по ним выводы.</p>
+  </div>
+  <div class="card tea" aria-label="Пример: горячий ли чай">
+    <div class="tea-q"><strong>Этот чай горячий?</strong><span class="tea-t" id="teaT">58 °C</span></div>
+    <input type="range" id="teaR" min="20" max="95" step="1" value="58" aria-label="Температура чая">
+    <div id="teaChart" class="chart"></div>
+    <div class="verdicts">
+      <div class="verdict"><span class="k">Классическая логика (порог 60 °C)</span><span class="v" id="teaCrisp">Нет</span><div class="meter"><i id="teaCrispBar"></i></div></div>
+      <div class="verdict"><span class="k">Нечёткая логика</span><span class="v" id="teaFuzzy">0.43 · отчасти</span><div class="meter"><i id="teaFuzzyBar"></i></div></div>
+    </div>
+    <p class="tea-note" id="teaNote">Подвигайте ползунок через 60 °C. Слева ответ прыгает скачком, справа меняется плавно.</p>
+  </div>
+</header>
+
+<section>
+  <span class="eyebrow">Три идеи, на которых всё держится</span>
+  <h2>Сначала без формул</h2>
+  <div class="duo">
+    <div class="card">
+      <h3>Степень принадлежности</h3>
+      <p>Каждое слово («жарко», «влажно») описывается кривой. Она показывает, насколько конкретное число подходит под это слово: от 0 (совсем нет) до 1 (точно да).</p>
+      <div class="ex">26 °C → «комфортно» на 0.40<br>26 °C → «жарко» на 0.29</div>
+      <p>Одно и то же значение может одновременно немного принадлежать двум словам. В этом и есть «нечёткость».</p>
+    </div>
+    <div class="card">
+      <h3>И / ИЛИ</h3>
+      <p>Условия в правиле соединяются через <b>И</b> (нужны оба) или <b>ИЛИ</b> (хватит одного). В нечёткой логике это превращается в минимум и максимум. Подробный разбор с интерактивом ниже.</p>
+      <div class="ex">жарко = 0.6, влажно = 0.3<br>жарко И влажно → 0.3<br>жарко ИЛИ влажно → 0.6</div>
+    </div>
+    <div class="card">
+      <h3>Правила как у эксперта</h3>
+      <p>Знания записываются обычными фразами вида <b>ЕСЛИ … ТО …</b>. Никакой модели обучать не нужно, нужен человек, который понимает задачу.</p>
+      <div class="ex">ЕСЛИ жарко И влажно,<br>ТО мощность = высокая</div>
+      <p>Правило срабатывает не «да/нет», а с силой от 0 до 1.</p>
+    </div>
+  </div>
+</section>
+
+<section id="andor">
+  <span class="eyebrow">Главное в правилах</span>
+  <h2>И и ИЛИ: как соединяются условия</h2>
+  <p class="lead">Правило почти всегда проверяет несколько условий сразу. Возникает вопрос: если одно условие выполнено сильно, а другое слабо, насколько правило верит в свой вывод? Ответ зависит от того, чем соединены условия.</p>
+  <div class="ao">
+    <div class="sub">
+      <span class="big-op" style="color:var(--c0)">И = минимум</span>
+      <p><b>Нужны оба условия.</b> Представьте цепь из двух звеньев: она выдержит ровно столько, сколько выдержит самое слабое звено. Если одно условие выполнено на 0.9, а другое на 0.2, то вместе они выполнены на 0.2.</p>
+      <div class="ex">ЕСЛИ завтра жарко И сегодня продали много,<br>ТО завтра продадим много</div>
+      <p>Жара без покупателей не гарантирует рекорд. Много покупателей в холодный день тоже. Рекорд ждём, только когда есть и то, и другое.</p>
+    </div>
+    <div class="sub">
+      <span class="big-op" style="color:var(--c2)">ИЛИ = максимум</span>
+      <p><b>Хватит одного повода.</b> Представьте комнату с двумя окнами: светло в ней настолько, насколько светит самое яркое окно. Второе, тусклое окно комнату не затемняет. Условия 0.9 и 0.2 вместе дают 0.9.</p>
+      <div class="ex">ЕСЛИ завтра холодно ИЛИ сегодня продали мало,<br>ТО завтра продадим мало</div>
+      <p>Любой из двух признаков уже повод осторожничать с заказом. Чтобы правило сработало сильно, достаточно одного сильного признака.</p>
+    </div>
+  </div>
+
+  <div class="card play">
+    <div class="col">
+      <h3>Подвигайте и сравните</h3>
+      <div class="pin"><div class="fhead"><label for="aoA">Условие A: «завтра жарко»</label><span id="aoAv">0.80</span></div><input type="range" id="aoA" min="0" max="1" step="0.01" value="0.8"></div>
+      <div class="pin"><div class="fhead"><label for="aoB">Условие B: «сегодня продали много»</label><span id="aoBv">0.30</span></div><input type="range" id="aoB" min="0" max="1" step="0.01" value="0.3"></div>
+      <div class="col" style="gap:10px">
+        <div class="res-row"><span>A</span><div class="meter a"><i id="aoAb"></i></div><span class="mono" id="aoAn"></span></div>
+        <div class="res-row"><span>B</span><div class="meter b"><i id="aoBb"></i></div><span class="mono" id="aoBn"></span></div>
+        <div class="res-row"><b>A И B</b><div class="meter"><i id="aoAndB"></i></div><b class="mono" id="aoAndN"></b></div>
+        <div class="res-row"><b>A ИЛИ B</b><div class="meter or"><i id="aoOrB"></i></div><b class="mono" id="aoOrN"></b></div>
+      </div>
+      <p class="why" id="aoWhy"></p>
+    </div>
+    <div class="col">
+      <div class="heat">
+        <figure><div class="chart" id="hmAnd"></div><figcaption>Карта «A И B»: ярко только в правом верхнем углу, где оба условия сильные</figcaption></figure>
+        <figure><div class="chart" id="hmOr"></div><figcaption>Карта «A ИЛИ B»: ярко везде, где сильно хотя бы одно</figcaption></figure>
+      </div>
+      <p class="shape-cap">По горизонтали A, по вертикали B. Чем ярче клетка, тем сильнее срабатывает правило. Кружок показывает текущие значения.</p>
+    </div>
+  </div>
+
+  <div class="ao">
+    <div class="sub">
+      <h3>Проверка: на 0 и 1 всё как в обычной логике</h3>
+      <div class="tablewrap"><table>
+        <tr><th>A</th><th>B</th><th>A И B = min</th><th>A ИЛИ B = max</th></tr>
+        <tr><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr>
+        <tr><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td></tr>
+      </table></div>
+      <p class="shape-cap">Минимум и максимум ничего не ломают: на «чистых» ответах они дают ту же таблицу истинности, что и булева логика. А между 0 и 1 продолжают работать плавно.</p>
+    </div>
+    <div class="sub">
+      <h3>Почему не среднее?</h3>
+      <p>Пусть завтра жарко на 1.0, а сегодня не продали почти ничего: «много» на 0.0. Среднее дало бы 0.5, то есть правило «жарко И много» сработало бы наполовину, хотя второе условие не выполнено совсем. Минимум честно даёт 0.</p>
+      <h3>Бонус: НЕ</h3>
+      <p>Отрицание считается как 1 − μ. Если «жарко» на 0.7, то «не жарко» на 0.3.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Алгоритм</span>
+  <h2>Пять шагов модели Мамдани</h2>
+  <ol class="steps">
+    <li><span class="n">шаг 1</span><h3>Фаззификация</h3><p>Число превращаем в степени: 27 °C — это «комфортно» на 0.2 и «жарко» на 0.43.</p></li>
+    <li><span class="n">шаг 2</span><h3>Правила</h3><p>Для каждого правила считаем силу через И (минимум) или ИЛИ (максимум).</p></li>
+    <li><span class="n">шаг 3</span><h3>Срез</h3><p>Фигуру вывода правила «подрезаем» на высоте его силы. Слабое правило оставляет низкую фигуру.</p></li>
+    <li><span class="n">шаг 4</span><h3>Агрегация</h3><p>Накладываем все подрезанные фигуры друг на друга и берём общий контур.</p></li>
+    <li><span class="n">шаг 5</span><h3>Дефаззификация</h3><p>Находим центр тяжести общей фигуры. Это и есть итоговое число.</p></li>
+  </ol>
+  <div class="formula">
+    <div class="f">x* = Σ x·μ(x) / Σ μ(x)</div>
+    <p>Единственная формула здесь. Представьте, что общую фигуру вырезали из картона: x* — точка, в которой она уравновесится на пальце.</p>
+  </div>
+</section>
+
+
+<section>
+  <span class="eyebrow">Как рисуют слова</span>
+  <h2>Формы функций принадлежности</h2>
+  <p class="lead">Форму выбирает эксперт. На практике чаще всего хватает треугольника и трапеции: их легко объяснить и быстро считать.</p>
+  <div class="g3">
+    <div class="sub"><h3>Треугольник (a, b, c)</h3><div class="chart" id="shape0"></div><p class="shape-cap">Одна «идеальная» точка b. Например, «около 5 баллов».</p></div>
+    <div class="sub"><h3>Трапеция (a, b, c, d)</h3><div class="chart" id="shape1"></div><p class="shape-cap">Целый отрезок [b; c] подходит полностью. Например, «комфортно от 21 до 24 °C».</p></div>
+    <div class="sub"><h3>Гауссова кривая</h3><div class="chart" id="shape2"></div><p class="shape-cap">Плавный колокол без углов. Удобен, когда граница понятия совсем размыта.</p></div>
+  </div>
+  <p class="prose">Крайние термы обычно делают «плечами»: «жарко» при 40 °C ничуть не меньше, чем при 31 °C, поэтому кривая справа остаётся на уровне 1.</p>
+</section>
+
+<section id="walk">
+  <div class="walk-top">
+    <div class="prose">
+      <span class="eyebrow">Полный разбор</span>
+      <h2>Пример от начала до конца</h2>
+      <p class="lead" id="walkIntro"></p>
+    </div>
+    <button class="btn" id="walkReset" hidden>Вернуть пример</button>
+  </div>
+  <div class="wsteps" id="walkBody"></div>
+</section>
+
+<section id="forecast">
+  <span class="eyebrow">Прогноз</span>
+  <h2>Две недели прогнозов: модель против реальности</h2>
+  <p class="lead">Каждый вечер кафе берёт прогноз погоды на завтра и сегодняшние продажи, пропускает их через модель и по результату заказывает мороженое. Так прошли 14 дней июля. Данные условные, но правдоподобные.</p>
+  <ol class="howto">
+    <li><span class="n">1</span><b>Что прогнозируем</b>Продажи мороженого на завтра, в порциях.</li>
+    <li><span class="n">2</span><b>Входы, известные заранее</b>Прогноз погоды на завтра и сколько продали сегодня.</li>
+    <li><span class="n">3</span><b>Термы и правила</b>Описываем слова кривыми и записываем 11 правил эксперта.</li>
+    <li><span class="n">4</span><b>Проверка на истории</b>Прогоняем модель по прошлым дням и считаем ошибку.</li>
+    <li><span class="n">5</span><b>Прогноз и доработка</b>Смотрим, где модель ошибается, правим правила, прогнозируем дальше.</li>
+  </ol>
+  <div class="tiles" id="fcTiles"></div>
+  <div class="card col">
+    <h3>Прогноз и факт по дням</h3>
+    <div class="tablewrap" style="border:0;background:none"><div class="chart" id="fcChart" style="min-width:560px"></div></div>
+    <div class="lgd"><span><i class="fact"></i>факт</span><span><i class="pred"></i>прогноз модели</span><span><i class="err"></i>ошибка</span></div>
+  </div>
+  <div class="tablewrap"><table id="fcTable"></table></div>
+  <div class="prose">
+    <h3>Что видно по результатам</h3>
+    <p id="fcNotes"></p>
+  </div>
+  <div class="card tomorrow">
+    <div class="col">
+      <span class="eyebrow">Прогноз на 15 июля</span>
+      <div class="field">
+        <div class="fhead"><label for="tmT">Синоптики обещают на завтра</label><span class="rng">0–35 °C</span></div>
+        <div class="frow"><input type="range" id="tmT" min="0" max="35" step="0.5" value="24" aria-label="Температура завтра"><div class="numwrap"><input type="text" id="tmTn" inputmode="decimal" value="24"><span>°C</span></div></div>
+        <p class="err" id="tmErr" hidden></p>
+      </div>
+      <p class="shape-cap" id="tmToday"></p>
+    </div>
+    <div class="col" aria-live="polite" id="tmRes"></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Дефаззификация</span>
+  <h2>Почему именно центр тяжести</h2>
+  <div class="dm">
+    <div class="sub"><h3>Центроид · используем здесь</h3><p>Учитывает всю фигуру целиком, поэтому результат меняется плавно, без скачков. Самый распространённый метод в модели Мамдани.</p></div>
+    <div class="sub"><h3>Биссектриса</h3><p>Ищет вертикальную линию, которая делит площадь фигуры пополам. Результат обычно близок к центроиду.</p></div>
+    <div class="sub"><h3>Среднее максимумов</h3><p>Смотрит только на самую высокую часть фигуры. Считается быстро, но может прыгать при небольших изменениях входа.</p></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Где это работает</span>
+  <h2>Нечёткая логика вокруг нас</h2>
+  <div class="apps">
+    <div class="card"><h3>Стиральные машины</h3><p>По степени загрязнения и весу белья подбирают время стирки и расход воды.</p></div>
+    <div class="card"><h3>Метро Сендай</h3><p>С 1987 года нечёткий регулятор разгоняет и тормозит поезда плавнее, чем машинист.</p></div>
+    <div class="card"><h3>Камеры</h3><p>Автофокус и экспозиция решают, «достаточно ли резко» и «не слишком ли темно».</p></div>
+    <div class="card"><h3>Финансы</h3><p>Экспертные скоринги, где правила проще объяснить клиенту и регулятору.</p></div>
+  </div>
+</section>
+
+<section id="lab">
+  <div class="lab-head">
+    <div class="prose">
+      <span class="eyebrow">Интерактивная лаборатория</span>
+      <h2>Попробуйте сами</h2>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+  </div>
+  <p class="sysdesc" id="sysdesc"></p>
+
+  <div class="lab">
+    <div class="col">
+      <div class="card col" id="inputs"></div>
+    </div>
+    <div class="col">
+      <div class="card result" aria-live="polite">
+        <span class="eyebrow" id="resTitle">Результат</span>
+        <div id="resBody"></div>
+      </div>
+      <div class="card col">
+        <h3>Агрегация и центр тяжести</h3>
+        <div class="chart" id="outChart"></div>
+        <div class="lgd"><span><i></i>термы вывода</span><span><i class="agg"></i>общая фигура</span><span><i class="cg"></i>центр тяжести</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Правила и их сила</h3>
+  <div class="tablewrap"><table id="rules"></table></div>
+
+  <div class="card col">
+    <h3>Расчёт словами</h3>
+    <ol class="log" id="log"></ol>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Для отчёта</span>
+  <h2>Где выполнено каждое требование</h2>
+  <div class="tablewrap"><table class="check">
+    <tr><th>Требование</th><th>Где на странице</th></tr>
+    <tr><td>Модель для прогноза</td><td>Вкладка «Прогноз продаж», раздел «Две недели прогнозов»: проверка на 14 днях, ошибки MAE и MAPE, прогноз на завтра</td></tr>
+    <tr><td>Пример полного расчёта</td><td>Раздел «Пример от начала до конца»: все подстановки, промежуточные таблицы и графики</td></tr>
+    <tr><td>Нечёткая модель Мамдани</td><td>Лаборатория: три готовые системы, переключаются вкладками</td></tr>
+    <tr><td>Фаззификация входов</td><td>Графики под каждым входом и метки со степенями; шаг 1 в «Расчёте словами»</td></tr>
+    <tr><td>Правила IF–THEN с AND / OR</td><td>Таблица правил: 11 правил в каждой системе, у каждого видно min или max</td></tr>
+    <tr><td>Агрегация</td><td>График «Агрегация и центр тяжести», закрашенная фигура</td></tr>
+    <tr><td>Дефаззификация центроидом</td><td>Вертикальная линия на графике вывода и итоговое число</td></tr>
+    <tr><td>Интерактивный интерфейс</td><td>Ползунки, поля ввода, кнопки, вкладки</td></tr>
+    <tr><td>Визуализация функций принадлежности</td><td>Графики входов и выхода</td></tr>
+    <tr><td>Число и текстовая интерпретация</td><td>Блок «Результат»</td></tr>
+    <tr><td>Не менее 9 правил</td><td>По 11 правил: 9 с И и 2 с ИЛИ</td></tr>
+    <tr><td>Повторный расчёт без перезапуска</td><td>Пересчёт при каждом изменении, кнопки «Рассчитать», «Случайный пример», «Сбросить»</td></tr>
+    <tr><td>Некорректный и неполный ввод</td><td>Пустое поле, текст вместо числа, выход за диапазон: сообщение под полем, расчёт останавливается</td></tr>
+  </table></div>
+</section>
+
+</div>
+
+<script>
+/* ---------- функции принадлежности ---------- */
+// трапеция [a,b,c,d]; треугольник — это трапеция с b = c
+function mf(x,[a,b,c,d]){
+  if(x<a||x>d) return 0;
+  if(x>=b&&x<=c) return 1;
+  if(x<b) return (x-a)/(b-a);
+  return (d-x)/(d-c);
+}
+const f2=v=>v.toFixed(2);
+function fmt(v){return Math.abs(v-Math.round(v))<1e-9?String(Math.round(v)):v.toFixed(1)}
+
+/* ---------- три системы ---------- */
+const SYSTEMS={
+  sales:{tab:'Прогноз продаж',
+    desc:'Кафе-мороженое прогнозирует продажи на завтра по прогнозу погоды и по сегодняшним продажам. Результат используется для заказа товара.',
+    story:'Кафе-мороженое, вечер. Сегодня продали <b>210 порций</b>, синоптики обещают на завтра <b>24 °C</b>. Сколько порций продадим завтра и сколько заказать? Посчитаем всё вручную, как в тетради, и на каждом шаге посмотрим на график.',
+    inputs:[
+      {name:'Температура завтра',unit:'°C',min:0,max:35,step:0.5,def:24,
+        terms:[{n:'холодно',p:[0,0,10,18]},{n:'тепло',p:[12,19,19,26]},{n:'жарко',p:[21,28,35,35]}]},
+      {name:'Продано сегодня',unit:'шт.',min:0,max:400,step:1,def:210,
+        terms:[{n:'мало',p:[0,0,80,170]},{n:'средне',p:[100,200,200,300]},{n:'много',p:[230,320,400,400]}]}
+    ],
+    output:{name:'Продажи завтра',short:'продажи завтра',unit:'шт.',min:0,max:400,
+      terms:[{n:'мало',p:[0,0,60,150]},{n:'средне',p:[100,200,200,300]},{n:'много',p:[250,340,400,400]}]},
+    rules:[
+      {a:[[0,0],[1,0]],op:'AND',c:0},{a:[[0,0],[1,1]],op:'AND',c:0},{a:[[0,0],[1,2]],op:'AND',c:1},
+      {a:[[0,1],[1,0]],op:'AND',c:0},{a:[[0,1],[1,1]],op:'AND',c:1},{a:[[0,1],[1,2]],op:'AND',c:1},
+      {a:[[0,2],[1,0]],op:'AND',c:1},{a:[[0,2],[1,1]],op:'AND',c:2},{a:[[0,2],[1,2]],op:'AND',c:2},
+      {a:[[0,0],[1,0]],op:'OR',c:0},{a:[[0,2],[1,2]],op:'OR',c:2}
+    ],
+    say:['Спрос будет низким: заказываем немного, чтобы не списывать товар.',
+         'Обычный день: заказываем стандартную партию.',
+         'Ожидается высокий спрос: увеличиваем заказ и ставим второго продавца.']},
+  ac:{tab:'Кондиционер',
+    desc:'По температуре и влажности в комнате модель решает, насколько сильно должен дуть вентилятор кондиционера.',
+    inputs:[
+      {name:'Температура',unit:'°C',min:10,max:40,step:0.5,def:27,
+        terms:[{n:'холодно',p:[10,10,16,22]},{n:'комфортно',p:[18,23,23,28]},{n:'жарко',p:[24,31,40,40]}]},
+      {name:'Влажность',unit:'%',min:0,max:100,step:1,def:65,
+        terms:[{n:'сухо',p:[0,0,25,45]},{n:'нормально',p:[30,50,50,70]},{n:'влажно',p:[55,75,100,100]}]}
+    ],
+    output:{name:'Мощность вентилятора',short:'мощность',unit:'%',min:0,max:100,
+      terms:[{n:'низкая',p:[0,0,15,40]},{n:'средняя',p:[25,50,50,75]},{n:'высокая',p:[60,85,100,100]}]},
+    rules:[
+      {a:[[0,0],[1,0]],op:'AND',c:0},{a:[[0,0],[1,1]],op:'AND',c:0},{a:[[0,0],[1,2]],op:'AND',c:1},
+      {a:[[0,1],[1,0]],op:'AND',c:0},{a:[[0,1],[1,1]],op:'AND',c:1},{a:[[0,1],[1,2]],op:'AND',c:1},
+      {a:[[0,2],[1,0]],op:'AND',c:1},{a:[[0,2],[1,1]],op:'AND',c:2},{a:[[0,2],[1,2]],op:'AND',c:2},
+      {a:[[0,0],[1,0]],op:'OR',c:0},{a:[[0,2],[1,2]],op:'OR',c:1}
+    ],
+    say:['Прохладно или сухо: вентилятор почти отдыхает и работает тихо.',
+         'Умеренная нагрузка: кондиционер поддерживает комфорт без рывков.',
+         'Жарко или душно: вентилятор работает почти на полную, чтобы быстро охладить комнату.']},
+  tip:{tab:'Чаевые',
+    desc:'Классическая задача: сколько оставить чаевых в кафе, если оценить обслуживание и еду по шкале от 0 до 10.',
+    inputs:[
+      {name:'Обслуживание',unit:'балл',min:0,max:10,step:0.1,def:7,
+        terms:[{n:'плохое',p:[0,0,1,4]},{n:'хорошее',p:[2,5,5,8]},{n:'отличное',p:[6,9,10,10]}]},
+      {name:'Еда',unit:'балл',min:0,max:10,step:0.1,def:4,
+        terms:[{n:'невкусная',p:[0,0,2,5]},{n:'нормальная',p:[3,5,5,7]},{n:'вкусная',p:[5,8,10,10]}]}
+    ],
+    output:{name:'Чаевые',short:'чаевые',unit:'%',min:0,max:25,
+      terms:[{n:'маленькие',p:[0,0,3,8]},{n:'обычные',p:[5,10,10,15]},{n:'щедрые',p:[12,18,25,25]}]},
+    rules:[
+      {a:[[0,0],[1,0]],op:'AND',c:0},{a:[[0,0],[1,1]],op:'AND',c:0},{a:[[0,0],[1,2]],op:'AND',c:1},
+      {a:[[0,1],[1,0]],op:'AND',c:0},{a:[[0,1],[1,1]],op:'AND',c:1},{a:[[0,1],[1,2]],op:'AND',c:2},
+      {a:[[0,2],[1,0]],op:'AND',c:1},{a:[[0,2],[1,1]],op:'AND',c:2},{a:[[0,2],[1,2]],op:'AND',c:2},
+      {a:[[0,0],[1,0]],op:'OR',c:0},{a:[[0,2],[1,2]],op:'OR',c:2}
+    ],
+    say:['Сервис или еда разочаровали: оставляем минимальные чаевые.',
+         'Всё прошло нормально: стандартные чаевые.',
+         'Отличный вечер: можно быть щедрым.']},
+  credit:{tab:'Кредитный риск',
+    desc:'Учебная модель скоринга: по кредитной истории (0–10) и долговой нагрузке (доля дохода на выплаты, %) оценивается риск заявки.',
+    inputs:[
+      {name:'Кредитная история',unit:'балл',min:0,max:10,step:0.1,def:6.5,
+        terms:[{n:'плохая',p:[0,0,2,5]},{n:'средняя',p:[3,5,5,7]},{n:'хорошая',p:[5,8,10,10]}]},
+      {name:'Долговая нагрузка',unit:'%',min:0,max:100,step:1,def:42,
+        terms:[{n:'низкая',p:[0,0,20,35]},{n:'умеренная',p:[25,40,40,55]},{n:'высокая',p:[45,60,100,100]}]}
+    ],
+    output:{name:'Риск',short:'риск',unit:'баллов',min:0,max:100,
+      terms:[{n:'низкий',p:[0,0,15,40]},{n:'средний',p:[25,50,50,75]},{n:'высокий',p:[60,85,100,100]}]},
+    rules:[
+      {a:[[0,0],[1,0]],op:'AND',c:1},{a:[[0,0],[1,1]],op:'AND',c:2},{a:[[0,0],[1,2]],op:'AND',c:2},
+      {a:[[0,1],[1,0]],op:'AND',c:0},{a:[[0,1],[1,1]],op:'AND',c:1},{a:[[0,1],[1,2]],op:'AND',c:2},
+      {a:[[0,2],[1,0]],op:'AND',c:0},{a:[[0,2],[1,1]],op:'AND',c:0},{a:[[0,2],[1,2]],op:'AND',c:1},
+      {a:[[0,0],[1,2]],op:'OR',c:2},{a:[[0,2],[1,0]],op:'OR',c:0}
+    ],
+    say:['Риск низкий: заявку можно одобрять на стандартных условиях.',
+         'Риск средний: стоит запросить дополнительные документы или уменьшить сумму.',
+         'Риск высокий: заявку лучше отклонить или предложить поручителя.']}
+};
+
+/* ---------- SVG-график ---------- */
+const mfT=(x,t)=>t.f?t.f(x):mf(x,t.p);
+function chart(o){
+  const W=520,H=o.h||190,L=34,R=16,T=14,B=28;
+  const X=v=>L+(v-o.min)/(o.max-o.min)*(W-L-R), Y=m=>T+(1-m)*(H-T-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.label||'график'}">`;
+  for(const m of [0,.5,1]) s+=`<line class="ax" x1="${L}" x2="${W-R}" y1="${Y(m)}" y2="${Y(m)}"/><text class="svgt" x="${L-6}" y="${Y(m)+4}" text-anchor="end">${m}</text>`;
+  for(let i=0;i<=5;i++){const v=o.min+i*(o.max-o.min)/5;s+=`<text class="svgt" x="${X(v)}" y="${H-8}" text-anchor="middle">${fmt(v)}</text>`}
+  const N=240,path=fn=>{let d='';for(let k=0;k<=N;k++){const v=o.min+k*(o.max-o.min)/N;d+=(k?'L':'M')+X(v).toFixed(1)+' '+Y(fn(v)).toFixed(1)}return d};
+  o.terms.forEach((t,i)=>{
+    if(o.only!=null&&o.only!==i) return;
+    const ci=o.ci!=null?o.ci:i, line=path(v=>mfT(v,t));
+    if(!o.dashed) s+=`<path class="a${ci}" fill-opacity=".1" d="${line}L${X(o.max)} ${Y(0)}L${X(o.min)} ${Y(0)}Z"/>`;
+    s+=`<path class="t${ci}" fill="none" stroke-width="${o.dashed?1.5:2}" ${o.dashed?'stroke-dasharray="5 4"':''} d="${line}"/>`;
+  });
+  if(o.clip){
+    const {i,h}=o.clip,t=o.terms[i];
+    if(h>0){
+      s+=`<path class="a${i}" fill-opacity=".38" d="${path(v=>Math.min(h,mfT(v,t)))}L${X(o.max)} ${Y(0)}L${X(o.min)} ${Y(0)}Z"/>`;
+      s+=`<line class="t${i}" stroke-width="1.2" stroke-dasharray="2 3" x1="${L}" x2="${W-R}" y1="${Y(h)}" y2="${Y(h)}"/>`;
+    }
+    s+=`<text class="cgt" x="${W-R}" y="${Math.max(T+12,Y(h)-6)}" text-anchor="end">срез = ${f2(h)}</text>`;
+  }
+  if(o.agg){
+    let p=`M${X(o.min)} ${Y(0)}`;o.agg.ys.forEach((y,k)=>p+=`L${X(y).toFixed(1)} ${Y(o.agg.m[k]).toFixed(1)}`);
+    s+=`<path class="agg" stroke-linejoin="round" d="${p}L${X(o.max)} ${Y(0)}Z"/>`;
+  }
+  if(o.stems) o.stems.forEach(([x,m])=>{s+=`<line class="mk" x1="${X(x)}" x2="${X(x)}" y1="${Y(0)}" y2="${Y(m)}"/><circle class="cg" fill="var(--surface)" cx="${X(x)}" cy="${Y(m)}" r="3.5"/>`});
+  if(o.marker!=null){
+    s+=`<line class="mk" x1="${X(o.marker)}" x2="${X(o.marker)}" y1="${Y(0)}" y2="${Y(1.02)}"/>`;
+    o.terms.forEach((t,i)=>{const d=mfT(o.marker,t);if(d>0){
+      if(o.guides){s+=`<line class="t${i}" stroke-width="1" stroke-dasharray="2 3" x1="${L}" x2="${X(o.marker)}" y1="${Y(d)}" y2="${Y(d)}"/>`;
+        const right=X(o.marker)>W-80;s+=`<text class="svgt" style="fill:var(--c${i});font-weight:500" x="${right?X(o.marker)-8:X(o.marker)+8}" y="${Y(d)-6}" text-anchor="${right?'end':'start'}">${f2(d)}</text>`}
+      s+=`<circle class="a${i}" cx="${X(o.marker)}" cy="${Y(d)}" r="4.5"/>`}});
+  }
+  if(o.centroid!=null){
+    const cx=X(o.centroid);const right=cx>W-90;
+    s+=`<line class="cg" x1="${cx}" x2="${cx}" y1="${Y(0)}" y2="${Y(1.02)}"/><text class="cgt" x="${right?cx-6:cx+6}" y="${Y(.92)}" text-anchor="${right?'end':'start'}">x* = ${o.centroid.toFixed(1)}</text>`;
+  }
+  return s+'</svg>';
+}
+
+/* ---------- пример с чаем ---------- */
+const hot=t=>Math.max(0,Math.min(1,(t-45)/30));
+function word(m){return m<.1?'нет':m<.4?'скорее нет':m<.6?'отчасти':m<.9?'скорее да':'да'}
+function teaChart(t){
+  const W=520,H=120,L=12,R=12,T=10,B=22;const X=v=>L+(v-20)/75*(W-L-R),Y=m=>T+(1-m)*(H-T-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Чёткий порог и плавная кривая">`;
+  s+=`<line class="ax" x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  for(const v of [20,40,60,80,95]) s+=`<text class="svgt" x="${X(v)}" y="${H-5}" text-anchor="middle">${v}°</text>`;
+  s+=`<path class="crisp" d="M${X(20)} ${Y(0)}L${X(60)} ${Y(0)}L${X(60)} ${Y(1)}L${X(95)} ${Y(1)}"/>`;
+  s+=`<path class="soft" d="M${X(20)} ${Y(0)}L${X(45)} ${Y(0)}L${X(75)} ${Y(1)}L${X(95)} ${Y(1)}"/>`;
+  s+=`<line class="mk" x1="${X(t)}" x2="${X(t)}" y1="${Y(0)}" y2="${Y(1)}"/><circle class="agg" cx="${X(t)}" cy="${Y(hot(t))}" r="5"/>`;
+  return s+'</svg>';
+}
+const teaR=document.getElementById('teaR'),teaT=document.getElementById('teaT'),teaCrisp=document.getElementById('teaCrisp'),
+  teaCrispBar=document.getElementById('teaCrispBar'),teaFuzzy=document.getElementById('teaFuzzy'),teaFuzzyBar=document.getElementById('teaFuzzyBar');
+const teaChartEl=document.getElementById('teaChart');
+function teaChart_(t){return teaChart(t)}
+teaR.addEventListener('input',()=>{const t=+teaR.value,m=hot(t),c=t>=60;
+  teaT.textContent=t+' °C';teaCrisp.textContent=c?'Да':'Нет';teaCrispBar.style.width=(c?100:0)+'%';
+  teaFuzzy.textContent=f2(m)+' · '+word(m);teaFuzzyBar.style.width=m*100+'%';teaChartEl.innerHTML=teaChart_(t)});
+teaR.dispatchEvent(new Event('input'));
+
+/* ---------- лаборатория ---------- */
+let cur='sales';
+const vals={};for(const k in SYSTEMS)vals[k]=SYSTEMS[k].inputs.map(i=>String(i.def));
+const $=id=>document.getElementById(id);
+
+function buildTabs(){
+  $('tabs').innerHTML=Object.entries(SYSTEMS).map(([k,s])=>`<button class="tab" role="tab" id="tab-${k}" aria-selected="${k===cur}" data-k="${k}">${s.tab}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{cur=b.dataset.k;buildTabs();buildLab()});
+}
+
+function buildLab(){
+  const S=SYSTEMS[cur];
+  $('sysdesc').textContent=S.desc;
+  let h='';
+  S.inputs.forEach((inp,i)=>{
+    h+=`<div class="field">
+      <div class="fhead"><label for="num-${cur}-${i}">${inp.name}</label><span class="rng">${fmt(inp.min)}–${fmt(inp.max)} ${inp.unit}</span></div>
+      <div class="frow"><input type="range" id="rng-${cur}-${i}" min="${inp.min}" max="${inp.max}" step="${inp.step}" aria-label="${inp.name}, ползунок">
+        <div class="numwrap" id="nw-${i}"><input type="text" inputmode="decimal" id="num-${cur}-${i}" autocomplete="off"><span>${inp.unit}</span></div></div>
+      <p class="err" id="err-${i}" hidden></p>
+      <div class="chart" id="ch-${i}"></div>
+      <div class="chips" id="chips-${i}"></div>
+    </div>`;
+  });
+  h+=`<div class="btns"><button class="btn primary" id="go">Рассчитать</button><button class="btn" id="rand">Случайный пример</button><button class="btn" id="reset">Сбросить</button><button class="btn" id="explain">Подробный разбор этих значений</button></div>`;
+  $('inputs').innerHTML=h;
+  S.inputs.forEach((inp,i)=>{
+    const num=$(`num-${cur}-${i}`),rng=$(`rng-${cur}-${i}`);
+    num.value=vals[cur][i];
+    const v=parseVal(vals[cur][i],inp);if(v.ok)rng.value=v.x;
+    num.addEventListener('input',()=>{vals[cur][i]=num.value;const p=parseVal(num.value,inp);if(p.ok)rng.value=p.x;compute()});
+    num.addEventListener('keydown',e=>{if(e.key==='Enter')compute()});
+    rng.addEventListener('input',()=>{num.value=rng.value;vals[cur][i]=rng.value;compute()});
+  });
+  $('go').onclick=compute;
+  $('explain').onclick=()=>{const p=S.inputs.map((inp,i)=>parseVal(vals[cur][i],inp));
+    if(p.every(q=>q.ok)){walkSys=cur;walkXs=p.map(q=>q.x);buildWalk();$('walk').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}else compute()};
+  $('reset').onclick=()=>{vals[cur]=S.inputs.map(i=>String(i.def));buildLab()};
+  $('rand').onclick=()=>{vals[cur]=S.inputs.map(i=>{const st=i.step,n=Math.round((i.min+Math.random()*(i.max-i.min))/st)*st;return fmt(+n.toFixed(2))});buildLab()};
+  compute();
+}
+
+function parseVal(raw,inp){
+  const s=String(raw).trim().replace(',','.');
+  if(s==='') return {ok:false,msg:`Поле «${inp.name}» пустое. Введите число от ${fmt(inp.min)} до ${fmt(inp.max)}.`};
+  if(!/^[-+]?\d*\.?\d+$/.test(s)) return {ok:false,msg:`«${raw}» не похоже на число. Пример: ${fmt(inp.def)}.`};
+  const x=parseFloat(s);
+  if(x<inp.min||x>inp.max) return {ok:false,msg:`Значение ${s} вне диапазона: допустимо от ${fmt(inp.min)} до ${fmt(inp.max)} ${inp.unit}.`};
+  return {ok:true,x};
+}
+
+function evaluate(S,xs){
+  const fz=S.inputs.map((inp,i)=>inp.terms.map(t=>mf(xs[i],t.p)));
+  const fired=S.rules.map(r=>{const v=r.a.map(([i,t])=>fz[i][t]);return {v,s:r.op==='AND'?Math.min(...v):Math.max(...v)}});
+  const O=S.output,N=600,ys=[],m=[];let num=0,den=0;
+  for(let k=0;k<=N;k++){
+    const y=O.min+k*(O.max-O.min)/N;let mm=0;
+    S.rules.forEach((r,j)=>{mm=Math.max(mm,Math.min(fired[j].s,mf(y,O.terms[r.c].p)))});
+    ys.push(y);m.push(mm);num+=y*mm;den+=mm;
+  }
+  const cut=O.terms.map((_,ti)=>Math.max(0,...S.rules.map((r,j)=>r.c===ti?fired[j].s:0)));
+  const x=den>0?num/den:null;
+  return {fz,fired,agg:{ys,m},cut,x};
+}
+
+const chipColor=i=>`var(--c${i})`;
+function termChip(name,i){return `<span class="term" style="color:${chipColor(i)}">${name}</span>`}
+
+function compute(){
+  const S=SYSTEMS[cur];
+  const parsed=S.inputs.map((inp,i)=>parseVal(vals[cur][i],inp));
+  parsed.forEach((p,i)=>{
+    const e=$(`err-${i}`),nw=$(`nw-${i}`),num=$(`num-${cur}-${i}`);
+    e.hidden=p.ok;e.textContent=p.ok?'':p.msg;nw.classList.toggle('bad',!p.ok);num.setAttribute('aria-invalid',!p.ok);
+    const inp=S.inputs[i];
+    $(`ch-${i}`).innerHTML=chart({min:inp.min,max:inp.max,terms:inp.terms,marker:p.ok?p.x:null,label:'Функции принадлежности: '+inp.name});
+    $(`chips-${i}`).innerHTML=inp.terms.map((t,ti)=>{const d=p.ok?mf(p.x,t.p):null;
+      return `<span class="chip${d?'':' zero'}"><span class="dot" style="background:${chipColor(ti)}"></span>${t.n} <b>${d==null?'—':f2(d)}</b></span>`}).join('');
+  });
+  const O=S.output;
+  $('resTitle').textContent='Результат · '+O.name;
+  const bad=parsed.map((p,i)=>p.ok?null:S.inputs[i].name).filter(Boolean);
+
+  if(bad.length){
+    $('resBody').innerHTML=`<p class="res-err">Расчёт остановлен: исправьте ${bad.length>1?'поля':'поле'} «${bad.join('», «')}». Как только ввод станет корректным, результат пересчитается сам.</p>`;
+    $('outChart').innerHTML=chart({min:O.min,max:O.max,terms:O.terms,dashed:true,label:'Термы вывода'});
+    renderRules(S,null);
+    $('log').innerHTML=`<li><span class="n">—</span><div>Нет корректных входных данных.</div></li>`;
+    return;
+  }
+  const xs=parsed.map(p=>p.x),R=evaluate(S,xs);
+  $('outChart').innerHTML=chart({min:O.min,max:O.max,terms:O.terms,dashed:true,agg:R.agg,centroid:R.x,label:'Агрегированная функция вывода'});
+  renderRules(S,R);
+
+  if(R.x==null){
+    $('resBody').innerHTML=`<p class="res-err">Ни одно правило не сработало: для таких входов в базе правил нет подходящего случая.</p>`;
+    $('log').innerHTML='';return;
+  }
+  const deg=O.terms.map(t=>mf(R.x,t.p));
+  const order=deg.map((d,i)=>[d,i]).sort((a,b)=>b[0]-a[0]);
+  const top=order[0][1],second=order[1];
+  let extra='';
+  if(second[0]>0.25) extra=` Значение лежит на границе между «${O.terms[top].n}» и «${O.terms[second[1]].n}».`;
+  $('resBody').innerHTML=`<div class="res-num"><span class="big">${R.x.toFixed(1)}</span><span class="unit">${O.unit}</span>
+    <span class="pill" style="color:${chipColor(top)}">${O.short} — ${O.terms[top].n} · ${f2(deg[top])}</span></div>
+    <p class="res-text">${S.say[top]}${extra}</p>`;
+
+  // журнал
+  const firedN=R.fired.filter(f=>f.s>0).length;
+  let best=0;R.fired.forEach((f,j)=>{if(f.s>R.fired[best].s)best=j});
+  const l1=S.inputs.map((inp,i)=>{const parts=inp.terms.map((t,ti)=>[t.n,R.fz[i][ti]]).filter(p=>p[1]>0).map(p=>`«${p[0]}» на ${f2(p[1])}`);
+    return `${inp.name} ${fmt(xs[i])} ${inp.unit} → ${parts.join(', ')}`}).join('; ');
+  const l3=O.terms.map((t,ti)=>R.cut[ti]>0?`«${t.n}» срезан на высоте ${f2(R.cut[ti])}`:`«${t.n}» не участвует`).join(', ');
+  $('log').innerHTML=[
+    ['Фаззификация',l1+'.'],
+    ['Правила',`Сработало ${firedN} из ${S.rules.length} правил. Самое сильное — №${best+1} с силой ${f2(R.fired[best].s)}.`],
+    ['Срез',`Если на один вывод ведут несколько правил, берём самое сильное: ${l3}.`],
+    ['Агрегация','Подрезанные фигуры объединены по максимуму в одну (закрашенная область на графике).'],
+    ['Дефаззификация',`Центр тяжести фигуры: <b class="mono">${R.x.toFixed(2)} ${O.unit}</b>.`]
+  ].map((s,i)=>`<li><span class="n">шаг ${i+1}</span><div><b>${s[0]}.</b> ${s[1]}</div></li>`).join('');
+}
+
+function renderRules(S,R){
+  const I=S.inputs,O=S.output;
+  let h=`<tr><th>№</th><th>Правило</th><th>Расчёт</th><th>Сила</th></tr>`;
+  S.rules.forEach((r,j)=>{
+    const cond=r.a.map(([i,t])=>`${I[i].name.toLowerCase()} = ${termChip(I[i].terms[t].n,t)}`).join(` <span class="op${r.op==='OR'?' or':''}">${r.op==='AND'?'И':'ИЛИ'}</span> `);
+    const f=R?R.fired[j]:null;
+    const calc=f?`${r.op==='AND'?'min':'max'}(${f.v.map(f2).join('; ')})`:'—';
+    h+=`<tr class="${f&&f.s>0?'':'off'}"><td class="num">${j+1}</td>
+      <td>ЕСЛИ ${cond}, ТО ${O.short} = ${termChip(O.terms[r.c].n,r.c)}</td>
+      <td class="calc">${calc}</td>
+      <td><div class="sbar"><div class="meter"><i style="width:${f?f.s*100:0}%"></i></div><span class="mono">${f?f2(f.s):'—'}</span></div></td></tr>`;
+  });
+  $('rules').innerHTML=h;
+}
+
+
+/* ---------- формы ---------- */
+$('shape0').innerHTML=chart({min:0,max:10,h:150,terms:[{p:[2,5,5,8]}],label:'Треугольная функция'});
+$('shape1').innerHTML=chart({min:0,max:10,h:150,terms:[{p:[1,3,7,9]}],ci:1,label:'Трапециевидная функция'});
+$('shape2').innerHTML=chart({min:0,max:10,h:150,terms:[{f:x=>Math.exp(-((x-5)**2)/(2*1.5**2))}],ci:2,label:'Гауссова функция'});
+
+/* ---------- полный разбор ---------- */
+const WALK_DEF={sys:'sales',xs:[24,210]};
+let walkSys=WALK_DEF.sys,walkXs=WALK_DEF.xs.slice();
+function shapeName(p){const [a,b,c,d]=p.map(fmt);return p[1]===p[2]?`треугольник (${a}; ${b}; ${d})`:`трапеция (${a}; ${b}; ${c}; ${d})`}
+function explainMf(x,p){
+  const [a,b,c,d]=p,X=fmt(x);
+  if(x<a||x>d) return `${X} вне [${fmt(a)}; ${fmt(d)}] → 0`;
+  if(x>=b&&x<=c) return b===c?`${X} — вершина → 1`:`${X} на «полке» [${fmt(b)}; ${fmt(c)}] → 1`;
+  if(x<b) return `левый склон: (${X} − ${fmt(a)}) / (${fmt(b)} − ${fmt(a)})`;
+  return `правый склон: (${fmt(d)} − ${X}) / (${fmt(d)} − ${fmt(c)})`;
+}
+function step(n,title,body){return `<div class="wstep"><div class="wlabel"><span class="n">шаг ${n}</span><h3>${title}</h3></div><div class="wbody">${body}</div></div>`}
+
+function buildWalk(){
+  const S=SYSTEMS[walkSys],xs=walkXs,I=S.inputs,O=S.output,R=evaluate(S,xs);
+  const isDef=walkSys===WALK_DEF.sys&&xs.every((x,i)=>x===WALK_DEF.xs[i]);
+  $('walkReset').hidden=isDef;
+  $('walkIntro').innerHTML=isDef&&S.story?S.story:`Модель «${S.tab}». На входе: ${I.map((inp,i)=>`<b>${inp.name.toLowerCase()} = ${fmt(xs[i])} ${inp.unit}</b>`).join(' и ')}. Посчитаем всё вручную, как в тетради, и на каждом шаге посмотрим на график.`;
+  let h='';
+
+  // шаг 0: данные
+  let t0=`<div class="tablewrap"><table><tr><th>Переменная</th><th>Терм</th><th>Функция принадлежности</th></tr>`;
+  [...I.map(v=>[v,'вход']),[O,'выход']].forEach(([v,kind])=>v.terms.forEach((t,ti)=>{
+    t0+=`<tr><td>${ti===0?`${v.name} <span class="op">${kind}</span><br><span class="calc">${fmt(v.min)}–${fmt(v.max)} ${v.unit}</span>`:''}</td><td>${termChip(t.n,ti)}</td><td class="calc">${shapeName(t.p)}</td></tr>`}));
+  t0+=`</table></div>`;
+  h+=step(0,'Исходные данные',`<p>Сначала эксперт описывает каждое слово числами. Для треугольника нужны три точки, для трапеции четыре. Это вся «память» модели вместе с правилами.</p>${t0}`);
+
+  // шаг 1
+  let s1=`<p>Для каждого входа смотрим, на какой высоте вертикальная линия пересекает каждую кривую. Склон считаем как долю пути: насколько далеко значение продвинулось от начала склона до его конца.</p><div class="g2">`;
+  I.forEach((inp,i)=>{
+    s1+=`<div class="sub"><h3>${inp.name} = ${fmt(xs[i])} ${inp.unit}</h3>
+      <div class="chart">${chart({min:inp.min,max:inp.max,terms:inp.terms,marker:xs[i],guides:true,label:inp.name})}</div>
+      <ul class="calcs">${inp.terms.map((t,ti)=>`<li>${termChip('μ<sub>'+t.n+'</sub>',ti)}<span>${explainMf(xs[i],t.p)}</span><span class="r">= ${f2(R.fz[i][ti])}</span></li>`).join('')}</ul></div>`;
+  });
+  s1+=`</div>`;
+  h+=step(1,'Фаззификация',s1);
+
+  // шаг 2
+  let t2=`<div class="tablewrap"><table><tr><th>№</th><th>Правило</th><th>Подстановка</th><th>Сила</th></tr>`;
+  S.rules.forEach((r,j)=>{
+    const f=R.fired[j];
+    const cond=r.a.map(([i,t])=>`${I[i].name.toLowerCase()} = ${termChip(I[i].terms[t].n,t)}`).join(` <span class="op${r.op==='OR'?' or':''}">${r.op==='AND'?'И':'ИЛИ'}</span> `);
+    t2+=`<tr class="${f.s>0?'hl':'off'}"><td class="num">${j+1}</td><td>ЕСЛИ ${cond}, ТО ${O.short} = ${termChip(O.terms[r.c].n,r.c)}</td>
+      <td class="calc">${r.op==='AND'?'min':'max'}(${f.v.map(f2).join('; ')})</td><td class="num"><b>${f2(f.s)}</b></td></tr>`;
+  });
+  t2+=`</table></div>`;
+  const firedN=R.fired.filter(f=>f.s>0).length;
+  h+=step(2,'Сила каждого правила',`<p>Подставляем степени из шага 1. Для <b>И</b> берём минимум, для <b>ИЛИ</b> максимум. Если в условии есть хотя бы один ноль, правило с <b>И</b> не срабатывает. Здесь сработало ${firedN} из ${S.rules.length}, они выделены.</p>${t2}`);
+
+  // шаг 3
+  let s3=`<p>Несколько правил могут вести к одному и тому же выводу. Для каждого вывода берём самое сильное из них. Затем «подрезаем» фигуру вывода на этой высоте: выше среза фигура не поднимается.</p><ul class="calcs">`;
+  O.terms.forEach((t,ti)=>{
+    const rs=S.rules.map((r,j)=>[r,j]).filter(([r])=>r.c===ti);
+    const nums=rs.map(([,j])=>`№${j+1}: ${f2(R.fired[j].s)}`).join(', ');
+    s3+=`<li>${termChip('«'+t.n+'»',ti)}<span>правила ${nums} → max</span><span class="r">= ${f2(R.cut[ti])}</span></li>`;
+  });
+  s3+=`</ul><div class="g3">`;
+  O.terms.forEach((t,ti)=>{s3+=`<div class="sub"><h3>${termChip(O.short+' — '+t.n,ti)}</h3><div class="chart">${chart({min:O.min,max:O.max,h:160,terms:O.terms,only:ti,dashed:true,clip:{i:ti,h:R.cut[ti]},label:'Срез терма '+t.n})}</div></div>`});
+  s3+=`</div>`;
+  h+=step(3,'Срез выводов',s3);
+
+  // шаг 4
+  const aggAt=x=>Math.max(...O.terms.map((t,ti)=>Math.min(R.cut[ti],mf(x,t.p))));
+  const probe=[.3,.55,.8].map(q=>O.min+q*(O.max-O.min));
+  let t4=`<div class="tablewrap"><table><tr><th>x</th>${O.terms.map((t,ti)=>`<th>${termChip(t.n,ti)}: min(срез; μ)</th>`).join('')}<th>Итог (max)</th></tr>`;
+  probe.forEach(x=>{t4+=`<tr><td class="num">${fmt(x)} ${O.unit}</td>${O.terms.map((t,ti)=>{const m=mf(x,t.p);return `<td class="calc">min(${f2(R.cut[ti])}; ${f2(m)}) = ${f2(Math.min(R.cut[ti],m))}</td>`}).join('')}<td class="num"><b>${f2(aggAt(x))}</b></td></tr>`});
+  t4+=`</table></div>`;
+  h+=step(4,'Агрегация',`<p>Накладываем подрезанные фигуры друг на друга. В каждой точке оси берём самую высокую из них. Получается одна общая фигура, она закрашена на графике. В таблице тот же расчёт для трёх точек.</p>
+    <div class="sub"><div class="chart">${chart({min:O.min,max:O.max,terms:O.terms,dashed:true,agg:R.agg,label:'Агрегированная фигура'})}</div></div>${t4}`);
+
+  // шаг 5
+  if(R.x==null){h+=step(5,'Дефаззификация','<p class="res-err">Ни одно правило не сработало, фигура пустая.</p>');$('walkBody').innerHTML=h;return}
+  const stepX=(O.max-O.min)/10;
+  const pts=[];for(let k=0;k<=10;k++){const x=O.min+k*stepX;pts.push([x,aggAt(x)])}
+  const sm=pts.reduce((a,[,m])=>a+m,0),sxm=pts.reduce((a,[x,m])=>a+x*m,0);
+  const approx=sm>0?sxm/sm:null;
+  // термы, которые остались в фигуре после среза, и правило, давшее срез
+  const act=O.terms.map((t,ti)=>ti).filter(ti=>R.cut[ti]>0);
+  const srcRule=ti=>{let b=-1;S.rules.forEach((r,j)=>{if(r.c===ti&&(b<0||R.fired[j].s>R.fired[b].s))b=j});return b+1};
+  const exact=v=>Math.abs(v-+v.toFixed(2))>1e-9?` (точнее ${v.toFixed(4)})`:'';
+  // 5а: откуда фигура
+  let a5=`<ul class="calcs">`;
+  O.terms.forEach((t,ti)=>{a5+=R.cut[ti]>0
+    ?`<li>${termChip('«'+t.n+'»',ti)}<span>${shapeName(t.p)}, срезан на высоте ${f2(R.cut[ti])}${exact(R.cut[ti])} — сила правила №${srcRule(ti)}</span></li>`
+    :`<li>${termChip('«'+t.n+'»',ti)}<span>срез 0 — в фигуре не участвует</span></li>`});
+  a5+=`</ul>`;
+  const formula=`μ(x) = max( ${act.map(ti=>`min(${f2(R.cut[ti])}; μ<sub>${O.terms[ti].n}</sub>(x))`).join(', ')} )`;
+  // 5б: таблица по точкам
+  let t5=`<div class="tablewrap"><table><tr><th>x</th>${act.map(ti=>`<th>${termChip(O.terms[ti].n,ti)}: μ(x) → min(срез; μ)</th>`).join('')}<th>μ(x) = max</th><th>x · μ(x)</th></tr>`;
+  pts.forEach(([x,m])=>{
+    t5+=`<tr class="${m>0?'':'off'}"><td class="num">${fmt(x)}</td>${act.map(ti=>{const t=O.terms[ti],v=mf(x,t.p);
+      return `<td class="calc">${explainMf(x,t.p)} = ${f2(v)}<br>min(${f2(R.cut[ti])}; ${f2(v)}) = <b>${f2(Math.min(R.cut[ti],v))}</b></td>`}).join('')}
+      <td class="num"><b>${f2(m)}</b></td><td class="num">${fmt(x)} · ${f2(m)} = ${(x*m).toFixed(2)}</td></tr>`});
+  t5+=`<tr class="hl"><td class="num"><b>Σ</b></td>${act.map(()=>'<td></td>').join('')}<td class="num"><b>${f2(sm)}</b></td><td class="num"><b>${sxm.toFixed(2)}</b></td></tr></table></div>`;
+  const nz=pts.filter(([,m])=>m>0);
+  // сходимость: чем больше точек, тем ближе к точному центру
+  const conv=[11,41,101,601].map(n=>{let a=0,b=0;for(let k=0;k<n;k++){const x=O.min+k*(O.max-O.min)/(n-1),m=aggAt(x);a+=x*m;b+=m}return [n,(O.max-O.min)/(n-1),b>0?a/b:null]});
+  const deg=O.terms.map(t=>mf(R.x,t.p));let top=0;deg.forEach((d,i)=>{if(d>deg[top])top=i});
+  h+=step(5,'Дефаззификация',`<p>У нас есть одна общая фигура из шага 4. Нужно превратить её в одно число. Для этого ищем её <b>центр тяжести</b>: точку на оси, в которой фигура, вырезанная из картона, уравновесилась бы на пальце.</p>
+    <div class="sub"><h3>5а. Из чего состоит фигура</h3>
+      <p>После шага 3 в фигуре остались только подрезанные термы вывода:</p>${a5}
+      <p>Высота общей фигуры в любой точке x считается так: для каждого терма берём его высоту μ(x) и обрезаем срезом (min), потом из результатов берём больший (max):</p>
+      <div class="ex">${formula}</div></div>
+    <div class="sub"><h3>5б. Откуда берутся точки x</h3>
+      <p>Руками нельзя посчитать фигуру в каждой точке, поэтому делим ось «${O.name.toLowerCase()}» от ${fmt(O.min)} до ${fmt(O.max)} на 10 равных шагов по ${fmt(stepX)}. Получается 11 точек: ${pts.map(([x])=>fmt(x)).join(', ')}.</p></div>
+    <div class="sub"><h3>5в. Высота фигуры в каждой точке</h3>
+      <p>Для каждой точки: считаем высоту терма по его склону, обрезаем срезом, из термов берём максимум. Последний столбец — точка, умноженная на свой «вес», то есть на высоту фигуры в ней. Числа в таблице округлены до сотых, но перемножаются с полной точностью.</p>${t5}</div>
+    <div class="g2"><div class="sub"><h3>5г. Складываем и делим</h3>
+      <div class="ex">x* = Σ x·μ(x) / Σ μ(x)</div>
+      <ul class="calcs">
+        <li><span>Σ μ(x) = ${nz.map(([,m])=>f2(m)).join(' + ')||'0'}</span><span class="r">= ${f2(sm)}</span></li>
+        <li><span>Σ x·μ(x) = ${nz.map(([x,m])=>(x*m).toFixed(2)).join(' + ')||'0'}</span><span class="r">= ${sxm.toFixed(2)}</span></li>
+        <li><span>x* ≈ ${sxm.toFixed(2)} / ${f2(sm)}</span><span class="r">= ${approx!=null?approx.toFixed(1):'—'} ${O.unit}</span></li></ul>
+      <p class="shape-cap">Это <b>взвешенное среднее x</b>: точки, где фигура выше, тянут ответ к себе сильнее. Пустые точки (μ = 0) вес не добавляют.</p></div>
+      <div class="sub"><div class="chart">${chart({min:O.min,max:O.max,terms:O.terms,dashed:true,agg:R.agg,stems:pts,centroid:R.x,label:'Центр тяжести'})}</div>
+      <p class="shape-cap">Пунктирные стойки — наши 11 точек, их высота равна μ(x) из таблицы. Вертикальная линия — точный центр тяжести.</p></div></div>
+    <div class="sub"><h3>5д. Почему по 11 точкам ответ другой</h3>
+      <p>Шаг ${fmt(stepX)} слишком крупный: между точками фигура успевает изменить форму (начинается или кончается склон, срабатывает срез), и 11 стоек передают её неточно. Чем мельче шаг, тем ближе ответ к настоящему центру тяжести. Программа считает по 601 точке — это и есть итоговое число.</p>
+      <div class="tablewrap"><table><tr><th>Точек</th><th>Шаг</th><th>x*</th></tr>
+        ${conv.map(([n,s,v],i)=>`<tr class="${i===conv.length-1?'hl':''}"><td class="num">${n}</td><td class="num">${s.toFixed(2)}</td><td class="num">${v!=null?v.toFixed(1):'—'} ${O.unit}</td></tr>`).join('')}
+      </table></div></div>
+    <div class="total"><span class="eyebrow">Ответ</span><span class="big">${R.x.toFixed(1)} ${O.unit}</span>
+      <span class="pill" style="color:${chipColor(top)}">${O.short} — ${O.terms[top].n} на ${f2(deg[top])}</span><span>${S.say[top]}</span></div>`);
+  $('walkBody').innerHTML=h;
+}
+$('walkReset').onclick=()=>{walkSys=WALK_DEF.sys;walkXs=WALK_DEF.xs.slice();buildWalk()};
+buildWalk();
+
+/* ---------- И / ИЛИ ---------- */
+function heat(fn,a,b,cls){
+  const n=11,W=220,P=26,cs=(W-P-6)/n;let s=`<svg viewBox="0 0 ${W} ${W}" role="img" aria-label="Тепловая карта">`;
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){const A=i/(n-1),B=j/(n-1),v=fn(A,B);
+    s+=`<rect x="${P+i*cs}" y="${6+(n-1-j)*cs}" width="${cs-1.5}" height="${cs-1.5}" rx="2" class="${cls}" fill-opacity="${(0.06+0.9*v).toFixed(2)}"/>`}
+  for(const v of [0,.5,1]){s+=`<text class="svgt" x="${P+v*(n-1)*cs+cs/2}" y="${W-6}" text-anchor="middle">${v}</text><text class="svgt" x="${P-5}" y="${6+(1-v)*(n-1)*cs+cs/2+4}" text-anchor="end">${v}</text>`}
+  const cx=P+a*(n-1)*cs+cs/2,cy=6+(1-b)*(n-1)*cs+cs/2;
+  s+=`<circle cx="${cx}" cy="${cy}" r="7" fill="none" stroke="var(--ink)" stroke-width="2.5"/><circle cx="${cx}" cy="${cy}" r="7" fill="none" stroke="var(--surface)" stroke-width="1" />`;
+  return s+'</svg>';
+}
+function andOr(){
+  const a=+$('aoA').value,b=+$('aoB').value,mn=Math.min(a,b),mx=Math.max(a,b);
+  $('aoAv').textContent=f2(a);$('aoBv').textContent=f2(b);
+  $('aoAb').style.width=a*100+'%';$('aoBb').style.width=b*100+'%';$('aoAn').textContent=f2(a);$('aoBn').textContent=f2(b);
+  $('aoAndB').style.width=mn*100+'%';$('aoOrB').style.width=mx*100+'%';
+  $('aoAndN').textContent=f2(mn);$('aoOrN').textContent=f2(mx);
+  const weak=a<b?'«жарко»':'«продали много»',strong=a<b?'«продали много»':'«жарко»';
+  let t=`И = min(${f2(a)}; ${f2(b)}) = <b>${f2(mn)}</b>. ИЛИ = max(${f2(a)}; ${f2(b)}) = <b>${f2(mx)}</b>. `;
+  if(Math.abs(a-b)<0.05) t+='Условия выполнены одинаково, поэтому И и ИЛИ почти совпадают.';
+  else t+=`Для И решает слабое условие ${weak}: правило «рекорд завтра» верит в вывод только на ${f2(mn)}. Для ИЛИ решает сильное условие ${strong}.`;
+  $('aoWhy').innerHTML=t;
+  $('hmAnd').innerHTML=heat(Math.min,a,b,'a0');$('hmOr').innerHTML=heat(Math.max,a,b,'a2');
+}
+['aoA','aoB'].forEach(id=>$(id).addEventListener('input',andOr));andOr();
+
+/* ---------- прогноз на две недели ---------- */
+const FC={start:180,temps:[22,25,28,31,30,26,19,15,17,23,27,32,33,29],fact:[229,244,308,342,361,286,221,142,167,213,286,372,370,350]};
+function buildForecast(){
+  const S=SYSTEMS.sales;let prev=FC.start;const rows=[];
+  FC.temps.forEach((t,i)=>{const f=evaluate(S,[t,prev]).x;rows.push({d:i+1,t,prev,f,a:FC.fact[i]});prev=FC.fact[i]});
+  const mae=rows.reduce((s,r)=>s+Math.abs(r.f-r.a),0)/rows.length;
+  const mape=rows.reduce((s,r)=>s+Math.abs(r.f-r.a)/r.a,0)/rows.length*100;
+  const errs=rows.map(r=>Math.abs(r.f-r.a)/r.a*100);const best=errs.indexOf(Math.min(...errs)),worst=errs.indexOf(Math.max(...errs));
+  $('fcTiles').innerHTML=[['Средняя ошибка (MAE)',`${mae.toFixed(0)} шт.`],['Средняя ошибка, % (MAPE)',`${mape.toFixed(1)} %`],
+    ['Самый точный день',`${best+1} июля · ${errs[best].toFixed(1)} %`],['Самый неточный день',`${worst+1} июля · ${errs[worst].toFixed(0)} %`]]
+    .map(([k,v])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+
+  // график
+  const W=640,H=250,L=40,R=14,T=14,B=30,n=rows.length;const X=i=>L+i*(W-L-R)/(n-1),Y=v=>T+(1-v/400)*(H-T-B);
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Прогноз и факт продаж за 14 дней">`;
+  for(const v of [0,100,200,300,400]) g+=`<line class="ax" x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="svgt" x="${L-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+  rows.forEach((r,i)=>{g+=`<text class="svgt" x="${X(i)}" y="${H-10}" text-anchor="middle">${r.d}</text><line class="fc-err" x1="${X(i)}" x2="${X(i)}" y1="${Y(r.a)}" y2="${Y(r.f)}"/>`});
+  g+=`<path class="fc-line fc-fact" d="${rows.map((r,i)=>(i?'L':'M')+X(i)+' '+Y(r.a)).join('')}"/>`;
+  g+=`<path class="fc-line fc-pred" stroke-dasharray="6 4" d="${rows.map((r,i)=>(i?'L':'M')+X(i)+' '+Y(r.f)).join('')}"/>`;
+  rows.forEach((r,i)=>{g+=`<circle class="fc-dot-f" cx="${X(i)}" cy="${Y(r.a)}" r="3.5"/><circle class="fc-dot-p" cx="${X(i)}" cy="${Y(r.f)}" r="4"/>`});
+  g+=`<text class="svgt" x="${W-R}" y="${H-10}" text-anchor="end">июль</text></svg>`;
+  $('fcChart').innerHTML=g;
+
+  let t=`<tr><th>День</th><th>Погода на этот день</th><th>Продано накануне</th><th>Прогноз</th><th>Факт</th><th>Ошибка</th><th></th></tr>`;
+  rows.forEach((r,i)=>{const e=r.f-r.a;t+=`<tr><td class="num">${r.d} июля</td><td class="num">${r.t} °C</td><td class="num">${r.prev}</td><td class="num"><b>${r.f.toFixed(0)}</b></td><td class="num">${r.a}</td>
+    <td class="num ${e>0?'pos':'neg'}">${e>0?'+':''}${e.toFixed(0)} (${(Math.abs(e)/r.a*100).toFixed(0)} %)</td><td><button class="linkbtn" data-i="${i}">разбор</button></td></tr>`});
+  $('fcTable').innerHTML=t;
+  $('fcTable').querySelectorAll('.linkbtn').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.i];walkSys='sales';walkXs=[r.t,r.prev];buildWalk();
+    $('walkIntro').innerHTML=`Разбор прогноза на <b>${r.d} июля</b>: накануне продали <b>${r.prev} порций</b>, синоптики обещали <b>${r.t} °C</b>. Модель дала ${r.f.toFixed(0)}, на деле продали ${r.a}.`;
+    $('walk').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})});
+
+  const over=rows.filter(r=>r.f>r.a).length;
+  $('fcNotes').innerHTML=`Модель в среднем ошибается на ${mape.toFixed(0)} %. Для правил, написанных вручную без обучения, это хороший результат. Ошибки идут в обе стороны: в ${over} днях из ${n} прогноз выше факта, в остальных ниже.<br><br>
+  Видна и слабость модели. В самые жаркие дни прогноз упирается примерно в ${Math.max(...rows.map(r=>r.f)).toFixed(0)} порций, хотя продали 370. Это центр тяжести терма «много»: выше него модель подняться не может. Чтобы прогнозировать рекорды, добавляют терм «очень много» и правило вроде «ЕСЛИ очень жарко И сегодня много, ТО завтра очень много». Нечёткую модель так и улучшают: смотрят, где она ошибается, и правят правила. Нажмите «разбор» у любого дня, чтобы увидеть полный расчёт.`;
+  $('tmToday').textContent=`Сегодня, 14 июля, продали ${FC.fact[13]} порций. Этот вход уже известен.`;
+}
+function tomorrow(){
+  const inp=SYSTEMS.sales.inputs[0],p=parseVal($('tmTn').value,inp);
+  $('tmErr').hidden=p.ok;$('tmErr').textContent=p.ok?'':p.msg;
+  if(!p.ok){$('tmRes').innerHTML='<p class="res-err">Введите температуру, чтобы получить прогноз.</p>';return}
+  const S=SYSTEMS.sales,R=evaluate(S,[p.x,FC.fact[13]]),O=S.output;
+  const deg=O.terms.map(t=>mf(R.x,t.p));let top=0;deg.forEach((d,i)=>{if(d>deg[top])top=i});
+  const order=Math.ceil(R.x*1.1/10)*10;
+  $('tmRes').innerHTML=`<span class="eyebrow">Модель прогнозирует</span><div class="res-num"><span class="big">${R.x.toFixed(0)}</span><span class="unit">порций</span>
+    <span class="pill" style="color:${chipColor(top)}">спрос — ${O.terms[top].n}</span></div>
+    <p class="res-text">${S.say[top]} С запасом 10 % заказываем <b>${order} порций</b>.</p>`;
+}
+$('tmT').addEventListener('input',()=>{$('tmTn').value=$('tmT').value;tomorrow()});
+$('tmTn').addEventListener('input',()=>{const p=parseVal($('tmTn').value,SYSTEMS.sales.inputs[0]);if(p.ok)$('tmT').value=p.x;tomorrow()});
+buildForecast();tomorrow();
+buildTabs();buildLab();
+</script>
+
+</body></html>

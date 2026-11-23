@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Формальные грамматики: теория и практика</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky table of contents on the left, lecture column on the right; every idea = text + live widget */
+:root{
+  --bg:#f4f6f8;
+  --paper:#ffffff;
+  --ink:#1b2230;
+  --muted:#5d6676;
+  --line:#dde2ea;
+  --nt:#2756c9;        /* нетерминалы */
+  --nt-soft:#e4ebfb;
+  --t:#b8530f;         /* терминалы */
+  --t-soft:#fbeadf;
+  --inner:#0f8a6b;     /* внутренние пары */
+  --inner-soft:#dcf2ea;
+  --ok:#1d7a3e; --ok-soft:#e2f3e7;
+  --bad:#b42323; --bad-soft:#fae3e3;
+  --display:"Literata", Georgia, "Times New Roman", serif;
+  --body:"IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --mono:"JetBrains Mono", Consolas, "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151c; --paper:#181d26; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2a3140;
+    --nt:#7fa2ff; --nt-soft:#1f2a45; --t:#f0995a; --t-soft:#3a2617;
+    --inner:#4fd1a8; --inner-soft:#15352c;
+    --ok:#5bd17f; --ok-soft:#163222; --bad:#ff7a7a; --bad-soft:#3a1a1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151c; --paper:#181d26; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2a3140;
+  --nt:#7fa2ff; --nt-soft:#1f2a45; --t:#f0995a; --t-soft:#3a2617;
+  --inner:#4fd1a8; --inner-soft:#15352c;
+  --ok:#5bd17f; --ok-soft:#163222; --bad:#ff7a7a; --bad-soft:#3a1a1a;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16.5px;line-height:1.6}
+a{color:var(--nt)}
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:32px 24px 80px}
+nav.toc{position:sticky;top:24px;align-self:start;font-size:14px}
+nav.toc h2{font-family:var(--display);font-size:17px;margin:0 0 10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px;counter-reset:t}
+nav.toc a{display:flex;gap:8px;padding:6px 10px;border-radius:8px;color:var(--muted);text-decoration:none}
+nav.toc a span{font-family:var(--mono);font-size:12px;color:var(--nt);min-width:18px;padding-top:2px}
+nav.toc a:hover,nav.toc a.active{background:var(--paper);color:var(--ink)}
+main{min-width:0}
+header.hero{padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.kicker{font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:.02em}
+h1{font-family:var(--display);font-size:clamp(30px,4vw,42px);line-height:1.15;margin:8px 0 12px;text-wrap:balance}
+h2{font-family:var(--display);font-size:27px;line-height:1.25;margin:0 0 6px;text-wrap:balance}
+h3{font-size:17px;margin:22px 0 6px}
+p{margin:0 0 12px;max-width:68ch}
+.lead{font-size:18px;color:var(--muted);max-width:62ch}
+section{padding:44px 0 8px;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;margin-bottom:12px}
+.num{font-family:var(--mono);color:var(--nt);font-size:15px}
+.task-tag{font-size:13px;padding:2px 10px;border-radius:999px;background:var(--t-soft);color:var(--t);font-weight:600;white-space:nowrap}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0}
+.card h4{margin:0 0 10px;font-size:15px;color:var(--muted);font-weight:600;text-transform:none}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.mini{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
+.mini b{font-family:var(--mono);font-size:20px;display:block;margin-bottom:4px}
+.mini small{color:var(--muted);font-size:14px;line-height:1.45;display:block}
+.mono{font-family:var(--mono)}
+.sym{font-family:var(--mono);font-weight:600;display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:30px;padding:0 6px;border-radius:7px;margin:2px 1px;font-size:16px}
+.sym.nt{background:var(--nt-soft);color:var(--nt);border:1.5px solid var(--nt)}
+.sym.t{background:var(--t-soft);color:var(--t);border:1.5px solid transparent}
+.sym.eps{background:transparent;color:var(--muted);border:1.5px dashed var(--line)}
+.sym.target{box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--nt)}
+.sym.fresh{animation:pop .45s ease-out}
+@keyframes pop{from{transform:translateY(-8px) scale(.6);opacity:0}to{transform:none;opacity:1}}
+.chain{display:flex;flex-wrap:wrap;align-items:center;min-height:46px;padding:8px 0}
+.status{font-size:15px;color:var(--muted);margin:4px 0 10px}
+.rules{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+button{font:inherit;cursor:pointer}
+.rbtn{font-family:var(--mono);font-size:15px;border:1.5px solid var(--nt);background:var(--paper);color:var(--ink);border-radius:9px;padding:6px 12px;transition:background .15s}
+.rbtn:hover:not(:disabled){background:var(--nt-soft)}
+.rbtn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line)}
+.rbtn .rn{color:var(--nt);font-weight:600;margin-right:6px}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:9px;padding:6px 14px;font-size:14px}
+.btn:hover{border-color:var(--nt)}
+.btn.primary{background:var(--nt);border-color:var(--nt);color:#fff}
+.btn.on{background:var(--nt-soft);border-color:var(--nt);color:var(--nt);font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--nt);outline-offset:2px}
+.hist{font-family:var(--mono);font-size:14.5px;background:var(--bg);border-radius:10px;padding:10px 12px;line-height:1.9;overflow-x:auto;white-space:nowrap}
+.hist .ar{color:var(--muted)}
+.hist .rn{color:var(--nt);font-size:12px;vertical-align:super}
+.treebox{overflow-x:auto;margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+.treebox svg{display:block;margin:0 auto}
+svg text{font-family:var(--mono)}
+.tnode circle{stroke-width:1.8}
+.tnode.nt circle{fill:var(--nt-soft);stroke:var(--nt)}
+.tnode.t circle{fill:var(--t-soft);stroke:var(--t)}
+.tnode.eps circle{fill:var(--paper);stroke:var(--line);stroke-dasharray:3 3}
+.tnode text{font-size:15px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.tnode.nt text{fill:var(--nt)} .tnode.t text{fill:var(--t)} .tnode.eps text{fill:var(--muted)}
+.tnode.tgt circle{stroke-width:3.5}
+.tnode.new{animation:grow .5s ease-out;transform-box:fill-box;transform-origin:center}
+@keyframes grow{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+.tedge{stroke:var(--muted);stroke-width:1.4;opacity:.7}
+.order{font-size:11px;fill:var(--paper)}
+.order-bg{fill:var(--ink)}
+.two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+table.tbl{border-collapse:collapse;width:100%;font-size:15px;margin:8px 0}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.tbl th{color:var(--muted);font-weight:600;font-size:13.5px}
+.tbl td.mono{white-space:nowrap}
+.pill{display:inline-block;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px}
+.pill.rep{background:var(--nt-soft);color:var(--nt)}
+.pill.exit{background:var(--ok-soft);color:var(--ok)}
+.slider{display:grid;grid-template-columns:110px minmax(0,1fr) 40px;gap:10px;align-items:center;margin:6px 0}
+.slider label{font-size:15px}
+.slider output{font-family:var(--mono);font-weight:600;text-align:right}
+input[type=range]{width:100%;accent-color:var(--nt)}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.stat{background:var(--bg);border-radius:10px;padding:8px 12px;font-size:14px}
+.stat b{font-family:var(--mono);font-size:17px;color:var(--ink);margin-left:4px}
+.words{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.word{font-family:var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:14.5px}
+.inrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.inrow input[type=text]{font-family:var(--mono);font-size:17px;padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);width:220px}
+.trace{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.trace li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;background:var(--bg);border-radius:10px;padding:10px 12px;font-size:15px;animation:slide .35s ease-out both}
+.trace li .i{font-family:var(--mono);color:var(--nt);font-weight:600}
+.trace li.bad{background:var(--bad-soft)} .trace li.bad .i{color:var(--bad)}
+.trace .f{font-family:var(--mono);color:var(--muted);display:block;margin-top:2px}
+@keyframes slide{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.verdict{margin-top:12px;padding:10px 14px;border-radius:10px;font-weight:600}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)} .verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.arcs{overflow-x:auto;padding:4px 0}
+.arcs svg{display:block}
+.arc{fill:none;stroke-width:2.2;transition:opacity .2s,stroke-width .2s}
+.arc.outer{stroke:var(--nt)} .arc.inner{stroke:var(--inner)}
+.lt{font-size:19px;font-weight:600;text-anchor:middle}
+.lt.outer{fill:var(--nt)} .lt.inner{fill:var(--inner)} .lt.mid{fill:var(--t)}
+.dim .arc{opacity:.15}
+.dim.hl-outer .arc.outer,.dim.hl-inner .arc.inner{opacity:1;stroke-width:3.2}
+.grule{font-family:var(--mono);font-size:15px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);display:inline-block;margin:3px 4px 3px 0;cursor:default}
+.grule.outer{border-color:var(--nt)} .grule.inner{border-color:var(--inner)}
+.note{border-left:3px solid var(--t);padding:6px 14px;background:var(--paper);border-radius:0 10px 10px 0;margin:14px 0;max-width:70ch}
+.steps-algo{counter-reset:s;list-style:none;padding:0;margin:12px 0;display:grid;gap:10px}
+.steps-algo li{counter-increment:s;display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.steps-algo li::before{content:counter(s);font-family:var(--display);font-weight:700;font-size:22px;color:var(--nt)}
+.quiz .q{margin-bottom:18px}
+.quiz .q p{font-weight:600;margin-bottom:8px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:9px;padding:7px 14px;font-size:15px}
+.opt:hover{border-color:var(--nt)}
+.opt.right{border-color:var(--ok);background:var(--ok-soft);color:var(--ok);font-weight:600}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.fb{font-size:14.5px;color:var(--muted);margin-top:6px;min-height:1.4em}
+.map td:first-child{white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--muted);margin:6px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:4px;border-radius:2px;display:inline-block}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.grid3 .mini b{font-family:var(--display);font-size:18px}
+.aicard b{font-family:var(--display);font-size:17px;line-height:1.3;margin-bottom:6px}
+.timeline{list-style:none;padding:0;margin:12px 0;display:grid;gap:0;border-left:2px solid var(--line);margin-left:8px}
+.timeline li{display:grid;grid-template-columns:78px minmax(0,1fr);gap:12px;padding:8px 0 8px 18px;position:relative;font-size:15.5px;max-width:72ch}
+.timeline li::before{content:"";position:absolute;left:-7px;top:15px;width:12px;height:12px;border-radius:50%;background:var(--paper);border:2px solid var(--nt)}
+.timeline .yr{font-family:var(--mono);font-weight:600;color:var(--nt)}
+.hier rect{fill:none;stroke:var(--line);stroke-width:1.6;transition:fill .3s,stroke .3s,stroke-width .3s}
+.hier rect.on{fill:var(--nt-soft);stroke:var(--nt);stroke-width:3}
+.hier text{font-family:var(--body);font-size:13px;fill:var(--muted)}
+.hier .hlab{font-family:var(--mono);font-size:17px;font-weight:600;fill:var(--t);text-anchor:middle}
+.pt rect{stroke-width:1.6}
+.pt.nt rect{fill:var(--nt-soft);stroke:var(--nt)} .pt.t rect{fill:var(--t-soft);stroke:var(--t)}
+.pt text{font-family:var(--body);font-size:13.5px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.pt.nt text{fill:var(--nt)} .pt.t text{fill:var(--t)}
+.tnode rect{stroke-width:1.8}
+.tnode.nt rect{fill:var(--nt-soft);stroke:var(--nt)} .tnode.t rect{fill:var(--t-soft);stroke:var(--t)}
+.tnode.wide text{font-family:var(--body);font-size:13.5px}
+.cands{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+.cand{border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--paper);display:flex;flex-direction:column;gap:6px}
+.cand .big{font-family:var(--mono);font-size:24px;font-weight:600;color:var(--t)}
+.cand.yes{border-color:var(--ok);background:var(--ok-soft)}
+.cand.no{opacity:.85}
+.cand .why{font-size:13.5px;color:var(--muted);line-height:1.4;flex:1}
+.cand .st{font-size:13px;font-weight:600}
+.cand.yes .st{color:var(--ok)} .cand.no .st{color:var(--bad)}
+@media (max-width:640px){ .cands{grid-template-columns:repeat(2,minmax(0,1fr))} }
+pre.code{font-family:var(--mono);font-size:15px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;line-height:1.6;margin:10px 0}
+pre.code .cm{color:var(--muted)}
+.rbtn.allow{border-color:var(--ok);background:var(--ok-soft)}
+.trace li.okk{background:var(--ok-soft)} .trace li.okk .i{color:var(--ok)}
+@media (max-width:900px){ .grid3{grid-template-columns:1fr} }
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr;gap:0;padding:16px 16px 60px}
+  nav.toc{position:static;margin-bottom:8px}
+  nav.toc ol{display:flex;overflow-x:auto;gap:4px;padding-bottom:6px}
+  nav.toc a{white-space:nowrap;background:var(--paper)}
+  nav.toc h2{display:none}
+  .two,.grid2{grid-template-columns:1fr}
+  .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:420px){ .grid4{grid-template-columns:1fr} .slider{grid-template-columns:80px minmax(0,1fr) 34px} }
+@media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Содержание">
+  <h2>Содержание</h2>
+  <ol>
+    <li><a href="#intro"><span>1</span>Введение</a></li>
+    <li><a href="#ai"><span>2</span>Зачем это в ИИ</a></li>
+    <li><a href="#what"><span>3</span>Что такое грамматика</a></li>
+    <li><a href="#derive"><span>4</span>Вывод и дерево</a></li>
+    <li><a href="#language"><span>5</span>Как найти язык</a></li>
+    <li><a href="#check"><span>6</span>Принадлежит ли слово</a></li>
+    <li><a href="#modify"><span>7</span>Изменение условия</a></li>
+    <li><a href="#leftright"><span>8</span>Левый и правый вывод</a></li>
+    <li><a href="#build"><span>9</span>Грамматика по языку</a></li>
+    <li><a href="#quiz"><span>10</span>Проверь себя</a></li>
+    <li><a href="#algo"><span>11</span>Памятка</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">Лабораторная работа №11 · лекция</div>
+  <h1>Формальные грамматики: от правил к языку</h1>
+  <p class="lead">Грамматика — это набор правил замены. Применяя их по очереди, мы получаем слова. Все слова, которые можно получить, образуют язык грамматики.</p>
+  <div class="card">
+    <h4>Где что объясняется</h4>
+    <table class="tbl map">
+      <tr><th>Раздел лекции</th><th>Что разбирается</th><th>Задание</th></tr>
+      <tr><td><a href="#intro">1. Введение</a></td><td>Алфавит, слово, язык; откуда взялись грамматики</td><td>—</td></tr>
+      <tr><td><a href="#ai">2. Зачем это в ИИ</a></td><td>Языковые модели, разбор текста, код</td><td>—</td></tr>
+      <tr><td><a href="#what">3. Что такое грамматика</a></td><td>Запись G = (VN, VT, P, S)</td><td>все</td></tr>
+      <tr><td><a href="#derive">4. Вывод и дерево</a></td><td>Левосторонний вывод, дерево вывода</td><td>2</td></tr>
+      <tr><td><a href="#language">5. Как найти язык</a></td><td>L(G), число шагов, слова длины ≤ 4</td><td>1, 5, 6</td></tr>
+      <tr><td><a href="#check">6. Принадлежит ли слово</a></td><td>Как доказать, что слова нет в языке</td><td>3</td></tr>
+      <tr><td><a href="#modify">7. Изменение условия</a></td><td>Какое правило менять</td><td>4</td></tr>
+      <tr><td><a href="#leftright">8. Левый и правый вывод</a></td><td>Почему выводы бывают разными</td><td>7</td></tr>
+      <tr><td><a href="#build">9. Грамматика по языку</a></td><td>Пары букв и «матрёшка»</td><td>8, 9</td></tr>
+    </table>
+  </div>
+</header>
+
+<!-- intro -->
+<section id="intro">
+  <div class="sec-head"><span class="num">01</span><h2>Введение: язык как множество слов</h2></div>
+  <p>Русский язык бесконечен: предложений можно составить сколько угодно. Но выучить бесконечный список нельзя. Мы знаем конечный набор правил и по нему строим и понимаем любые новые предложения. Формальная грамматика делает то же самое строго: <b>конечный набор правил описывает бесконечное множество слов</b>.</p>
+  <div class="grid3">
+    <div class="mini"><b>Алфавит</b><small>Конечный набор символов. Пример: { a, b, c } или { 0, 1, 2 }.</small></div>
+    <div class="mini"><b>Слово</b><small>Конечная последовательность символов алфавита: <span class="mono">abbc</span>, <span class="mono">00112</span>. Пустое слово обозначают <span class="mono">ε</span>.</small></div>
+    <div class="mini"><b>Язык</b><small>Множество слов, обычно бесконечное: <span class="mono">{ b, bb, abc, aabcc, … }</span>.</small></div>
+  </div>
+  <p>С грамматикой связаны две задачи:</p>
+  <div class="grid2">
+    <div class="mini"><b style="font-size:17px">Порождение</b><small>По правилам получить слова языка. Этим мы занимаемся, когда строим вывод.</small></div>
+    <div class="mini"><b style="font-size:17px">Распознавание</b><small>Дано слово: принадлежит ли оно языку? Это мы делаем в задании 3.</small></div>
+  </div>
+  <h3>Откуда это взялось</h3>
+  <ol class="timeline">
+    <li><span class="yr">1956</span><span>Ноам Хомский предлагает классифицировать грамматики по виду правил. Так появляется иерархия, о которой ниже.</span></li>
+    <li><span class="yr">1960</span><span>Синтаксис языка ALGOL 60 записан в форме Бэкуса–Наура (БНФ). С тех пор языки программирования описывают грамматиками.</span></li>
+    <li><span class="yr">сейчас</span><span>Грамматики ограничивают ответы языковых моделей, чтобы они выдавали корректный JSON, SQL или код.</span></li>
+  </ol>
+</section>
+
+<!-- ai -->
+<section id="ai">
+  <div class="sec-head"><span class="num">02</span><h2>Зачем грамматики в искусственном интеллекте</h2></div>
+  <p>Грамматики — один из самых старых инструментов ИИ, и сегодня они снова в работе. Везде, где машина должна понять или выдать текст строгой структуры, за этим стоит грамматика.</p>
+  <div class="grid2">
+    <div class="mini aicard"><b>Языковые модели и структурированный ответ</b><small>Модель выбирает следующий токен. Грамматика заранее запрещает токены, после которых слово уже не может попасть в язык. Так модель гарантированно выдаёт правильный JSON, SQL или вызов функции. Такие ограничения поддерживают, например, llama.cpp (формат GBNF) и режимы structured output у API моделей.</small></div>
+    <div class="mini aicard"><b>Разбор естественного языка</b><small>Предложение раскладывается в дерево по грамматике: подлежащее, сказуемое, дополнение. Дерево помогает понять, кто что делает. Пример — ниже.</small></div>
+    <div class="mini aicard"><b>Поиск в тексте и токенизация</b><small>Регулярные грамматики (тип 3, о них ниже) лежат в основе регулярных выражений. Ими находят в тексте даты, суммы, e-mail и делят текст на токены перед подачей в модель.</small></div>
+    <div class="mini aicard"><b>Код и компиляторы</b><small>Любая программа на Python перед запуском разбирается по грамматике языка. SyntaxError означает ровно одно: ваш текст не принадлежит языку Python.</small></div>
+  </div>
+
+  <h3>Пример 1. Грамматика как фильтр для языковой модели</h3>
+  <p>Языковая модель пишет ответ по кусочку: на каждом шаге выбирает, что дописать дальше. Если ответ должен иметь строгий вид (например, JSON), к модели подключают грамматику. Перед каждым шагом грамматика проверяет все варианты и оставляет только те, после которых ответ ещё можно закончить правильно.</p>
+  <p>Покажем это на нашем языке aⁿbᵏcⁿ. Ниже — уже написанное начало слова и четыре варианта продолжения. Для каждого видно, разрешает ли его грамматика и почему.</p>
+  <div class="card">
+    <h4>Уже написано</h4>
+    <div class="chain" id="genword"></div>
+    <div class="cands" id="gencands"></div>
+    <div class="ctrl">
+      <button class="btn primary" id="genrun">▶ Модель дописывает сама</button>
+      <button class="btn" id="genreset">Сначала</button>
+    </div>
+    <p class="status" id="genmsg" style="margin-top:10px"></p>
+  </div>
+  <div class="note">Так же работает JSON: после <span class="mono">{"age":</span> грамматика разрешит число или строку, но запретит <span class="mono">}</span>, потому что значение ещё не написано.</div>
+
+  <h3>Пример 2. Разбор предложения</h3>
+  <p>Грамматика может описывать и обычный язык. Нетерминалы здесь — части предложения, терминалы — слова. Выводите предложение так же, как выводили aabbbcc в разделе 4: нажимайте на правила.</p>
+  <div class="card"><div class="mono" style="line-height:2">P = { <b>1.</b> Предложение → Подлежащее Сказуемое &nbsp; <b>2.</b> Подлежащее → кот &nbsp; <b>3.</b> Подлежащее → пёс &nbsp; <b>4.</b> Сказуемое → видит Дополнение &nbsp; <b>5.</b> Дополнение → мышь &nbsp; <b>6.</b> Дополнение → мяч }</div></div>
+  <div class="card" id="d3"></div>
+  <p style="font-size:15px;color:var(--muted)">По дереву видно, какое слово какую роль играет: «кот» — подлежащее, «мышь» — дополнение. Программы, которые разбирают текст, строят именно такие деревья.</p>
+</section>
+
+<!-- 1 -->
+<section id="what">
+  <div class="sec-head"><span class="num">03</span><h2>Что такое грамматика</h2><span class="task-tag">все задания</span></div>
+  <p>Грамматика записывается четвёркой <span class="mono">G = (VN, VT, P, S)</span>. Каждая буква четвёрки — отдельная часть.</p>
+  <div class="grid4">
+    <div class="mini"><b style="color:var(--nt)">VN</b><small>Нетерминалы — «заготовки», которые ещё будут заменены. Пишем большими буквами: <span class="sym nt">S</span><span class="sym nt">A</span></small></div>
+    <div class="mini"><b style="color:var(--t)">VT</b><small>Терминалы — буквы готового слова. Их уже не заменяют: <span class="sym t">a</span><span class="sym t">b</span><span class="sym t">c</span></small></div>
+    <div class="mini"><b>P</b><small>Правила вида <span class="mono">X → …</span>: «нетерминал X можно заменить на то, что справа».</small></div>
+    <div class="mini"><b>S</b><small>Начальный символ. С него начинается любой вывод.</small></div>
+  </div>
+  <p>Всю лекцию мы работаем с одной грамматикой из примера решения:</p>
+  <div class="card">
+    <div class="mono" style="font-size:16px;line-height:2">G = (VN, VT, P, S); VN = { S, A }, VT = { a, b, c }<br>
+    P = { <b>1.</b> S → aSc &nbsp; <b>2.</b> S → A &nbsp; <b>3.</b> A → bA &nbsp; <b>4.</b> A → b }</div>
+  </div>
+  <h3>Типы грамматик: иерархия Хомского</h3>
+  <p>Грамматики делят на четыре типа по виду правил. Чем строже правила, тем меньше языков можно описать. Нажмите на язык и посмотрите, какой самый простой тип для него нужен.</p>
+  <div class="card">
+    <div class="two" style="align-items:center">
+      <div class="hier" id="hier">
+        <svg viewBox="0 0 400 260" width="100%" role="img" aria-label="Иерархия Хомского">
+          <rect data-l="0" x="6" y="6" width="388" height="248" rx="18"/>
+          <rect data-l="1" x="26" y="40" width="348" height="200" rx="16"/>
+          <rect data-l="2" x="46" y="74" width="308" height="152" rx="14"/>
+          <rect data-l="3" x="66" y="108" width="268" height="104" rx="12"/>
+          <text x="20" y="28">Тип 0 · неограниченные</text>
+          <text x="40" y="62">Тип 1 · контекстно-зависимые</text>
+          <text x="60" y="96">Тип 2 · контекстно-свободные</text>
+          <text x="80" y="130">Тип 3 · регулярные</text>
+          <text id="hlab" class="hlab" x="200" y="180"></text>
+        </svg>
+      </div>
+      <div>
+        <div class="opts" id="hbtns"></div>
+        <p class="status" id="hexpl" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <table class="tbl" style="margin-top:12px">
+      <tr><th>Тип</th><th>Вид правил</th><th>Пример</th></tr>
+      <tr><td>3, регулярные</td><td class="mono">A → aB, A → a</td><td>a*b*, идентификаторы, числа</td></tr>
+      <tr><td>2, контекстно-свободные</td><td>слева ровно один нетерминал: <span class="mono">A → γ</span></td><td>наша G, скобки, языки программирования</td></tr>
+      <tr><td>1, контекстно-зависимые</td><td>замена с учётом соседей: <span class="mono">αAβ → αγβ</span></td><td>aⁿbⁿcⁿ</td></tr>
+      <tr><td>0, неограниченные</td><td>любые правила</td><td>всё, что может посчитать машина Тьюринга</td></tr>
+    </table>
+    <p style="font-size:15px;color:var(--muted);margin:6px 0 0">Все грамматики лабораторной контекстно-свободные: слева в каждом правиле один нетерминал. Язык грамматики 2 (a²ⁿbc) даже регулярный: считать пары не нужно, достаточно проверять чётность.</p>
+  </div>
+
+  <p><b>Вывод</b> — это цепочка замен от S до слова, где не осталось ни одного нетерминала. Запись <span class="mono">aSc ⇒ aaScc</span> читается так: «в цепочке aSc заменили S по правилу 1».</p>
+</section>
+
+<!-- 2 -->
+<section id="derive">
+  <div class="sec-head"><span class="num">04</span><h2>Вывод шаг за шагом и дерево вывода</h2><span class="task-tag">задание 2</span></div>
+  <p>Выводите слово сами: нажимайте на правило, и оно заменит нетерминал в рамке. В <b>левостороннем</b> выводе всегда заменяется самый левый нетерминал. Ниже одновременно растёт дерево: каждое правило даёт узлу потомков — символы правой части, слева направо.</p>
+  <div class="card" id="d1"></div>
+  <div class="note">Как читать дерево: листья (узлы без потомков) слева направо дают готовое слово. Для aabbbcc это a, a, b, b, b, c, c.</div>
+</section>
+
+<!-- 3 -->
+<section id="language">
+  <div class="sec-head"><span class="num">05</span><h2>Как найти язык L(G)</h2><span class="task-tag">задания 1, 5, 6</span></div>
+  <p>Главный приём: у каждого нетерминала разделить правила на два вида.</p>
+  <table class="tbl">
+    <tr><th>Правило</th><th>Вид</th><th>Что делает</th><th>Сколько раз</th></tr>
+    <tr><td class="mono">1. S → aSc</td><td><span class="pill rep">повторяется</span></td><td>справа снова S → можно применять сколько угодно; каждый раз +1 a слева и +1 c справа</td><td class="mono">n</td></tr>
+    <tr><td class="mono">2. S → A</td><td><span class="pill exit">выход</span></td><td>S исчезает; новых a и c больше не будет</td><td class="mono">1</td></tr>
+    <tr><td class="mono">3. A → bA</td><td><span class="pill rep">повторяется</span></td><td>+1 b, A остаётся</td><td class="mono">k − 1</td></tr>
+    <tr><td class="mono">4. A → b</td><td><span class="pill exit">выход</span></td><td>последняя b, вывод закончен</td><td class="mono">1</td></tr>
+  </table>
+  <p>Порядок вынужденный: пока в цепочке есть S, работают правила 1–2; A появляется только после правила 2. Так получается <span class="mono">S ⇒ … ⇒ aⁿScⁿ ⇒ aⁿAcⁿ ⇒ … ⇒ aⁿbᵏcⁿ</span>.</p>
+  <p>Двигайте ползунки и смотрите, какое слово и какой вывод получаются:</p>
+  <div class="card">
+    <div class="slider"><label for="ln">n (пар a…c)</label><input type="range" id="ln" min="0" max="5" value="2"><output id="lno">2</output></div>
+    <div class="slider"><label for="lk">k (букв b)</label><input type="range" id="lk" min="1" max="6" value="3"><output id="lko">3</output></div>
+    <div class="chain" id="lword"></div>
+    <div class="stats">
+      <div class="stat">длина 2n + k =<b id="llen"></b></div>
+      <div class="stat">шагов вывода n + k + 1 =<b id="lsteps"></b></div>
+    </div>
+    <div class="hist" id="lhist"></div>
+  </div>
+  <p><b>Ответ:</b> <span class="mono">L(G) = { aⁿbᵏcⁿ, n ≥ 0, k ≥ 1 }</span>. n ≥ 0, потому что правило 1 можно не применять. k ≥ 1, потому что правила A → ε нет и правило 4 обязательно.</p>
+  <h3>Все слова не длиннее L</h3>
+  <div class="card">
+    <div class="slider"><label for="lmax">L</label><input type="range" id="lmax" min="1" max="8" value="4"><output id="lmaxo">4</output></div>
+    <div class="words" id="lwords"></div>
+    <p class="status" id="lwcount" style="margin-top:8px"></p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="check">
+  <div class="sec-head"><span class="num">06</span><h2>Принадлежит ли слово языку</h2><span class="task-tag">задание 3</span></div>
+  <p>Чтобы доказать, что слова <b>нет</b> в языке, мало сказать «не получилось». Нужно строить вывод и показать, что на каком-то шаге ни одно правило не подходит. Подсказка — первая буква: <span class="mono">a</span> даёт только правило 1, <span class="mono">b</span> — только путь через правило 2.</p>
+  <div class="card">
+    <div class="inrow">
+      <label for="win" class="sr">Слово:</label>
+      <input type="text" id="win" value="abbcc" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="wgo">Проверить</button>
+      <span style="color:var(--muted);font-size:14px">примеры:</span>
+      <button class="btn" data-w="aabbbcc">aabbbcc</button>
+      <button class="btn" data-w="abbcc">abbcc</button>
+      <button class="btn" data-w="aacc">aacc</button>
+      <button class="btn" data-w="b">b</button>
+      <button class="btn" data-w="aabcc">aabcc</button>
+    </div>
+    <ol class="trace" id="wtrace"></ol>
+    <div id="wverdict"></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="modify">
+  <div class="sec-head"><span class="num">07</span><h2>Изменение условия</h2><span class="task-tag">задание 4</span></div>
+  <p>Нужно получить <span class="mono">aⁿbᵏc²ⁿ</span>. Сравниваем со старым языком: часть с b не изменилась, изменилось только число c на одну a. Буквы a и c ставит только правило 1, значит меняем только его. Дуги ниже показывают, какие c «принадлежат» каждой a.</p>
+  <div class="card">
+    <div class="ctrl" style="margin:0 0 8px">
+      <button class="btn on" id="m1">было: S → aSc</button>
+      <button class="btn" id="m2">стало: S → aScc</button>
+    </div>
+    <div class="slider"><label for="mn">n</label><input type="range" id="mn" min="1" max="4" value="2"><output id="mno">2</output></div>
+    <div class="slider"><label for="mk">k</label><input type="range" id="mk" min="1" max="4" value="1"><output id="mko">1</output></div>
+    <div class="arcs" id="marcs"></div>
+    <div class="hist" id="mhist"></div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="leftright">
+  <div class="sec-head"><span class="num">08</span><h2>Левосторонний и правосторонний вывод</h2><span class="task-tag">задание 7</span></div>
+  <p>В G в каждой цепочке ровно один нетерминал, поэтому выбирать нечего, и левый вывод совпадает с правым. Возьмём грамматику 1 из лабораторной, где правило 1 сразу даёт два нетерминала:</p>
+  <div class="card"><div class="mono" style="line-height:2">G₁: VN = { S, A, B }, VT = { 0, 1, 2 }<br>P = { <b>1.</b> S → AB &nbsp; <b>2.</b> A → 01 &nbsp; <b>3.</b> A → 0A1 &nbsp; <b>4.</b> B → 2 &nbsp; <b>5.</b> B → 2B }</div></div>
+  <p>Переключите режим и запустите вывод 00112. Чёрные метки на дереве показывают, на каком шаге раскрыт узел. Дерево одно и то же, меняется только порядок шагов.</p>
+  <div class="card" id="d2"></div>
+</section>
+
+<!-- 7 -->
+<section id="build">
+  <div class="sec-head"><span class="num">09</span><h2>Как построить грамматику по языку</h2><span class="task-tag">задания 8, 9</span></div>
+  <p>Ищем буквы, которых должно быть поровну, и соединяем их в пары. Пара по краям слова строится правилом вида <span class="mono">X → aXd</span>. Пары вкладываются друг в друга как матрёшка: на каждый уровень — свой нетерминал.</p>
+  <div class="card">
+    <div class="ctrl" style="margin:0 0 8px">
+      <button class="btn on" id="bA">aⁿbᵐcᵐdⁿ</button>
+      <button class="btn" id="bB">aⁿbᵐcⁿ⁺ᵐ</button>
+    </div>
+    <div class="slider"><label for="bn">n</label><input type="range" id="bn" min="0" max="4" value="2"><output id="bno">2</output></div>
+    <div class="slider"><label for="bm">m</label><input type="range" id="bm" min="1" max="4" value="2"><output id="bmo">2</output></div>
+    <div class="legend"><span><i class="sw" style="background:var(--nt)"></i>внешние пары — нетерминал S</span><span><i class="sw" style="background:var(--inner)"></i>внутренние пары — нетерминал B</span></div>
+    <div class="arcs" id="barcs"></div>
+    <div id="bexpl" class="status"></div>
+    <div id="brules" style="margin:6px 0"></div>
+    <div class="hist" id="bhist"></div>
+  </div>
+  <div class="note" id="bnote"></div>
+</section>
+
+<!-- 8 -->
+<section id="quiz">
+  <div class="sec-head"><span class="num">10</span><h2>Проверь себя</h2></div>
+  <p>Все вопросы про грамматику G и языки из лекции.</p>
+  <div class="card quiz" id="qz"></div>
+</section>
+
+<!-- 9 -->
+<section id="algo">
+  <div class="sec-head"><span class="num">11</span><h2>Памятка: как решать такие задачи</h2></div>
+  <ol class="steps-algo">
+    <li><div><b>Разметить правила.</b> У каждого нетерминала найти правила «повторяется» (нетерминал остаётся справа) и «выход» (не остаётся).</div></li>
+    <li><div><b>Понять, что добавляет каждое правило.</b> Повторяющиеся правила дают степени n, k, m; выходные применяются один раз.</div></li>
+    <li><div><b>Записать язык и проверить</b> на 2–3 самых коротких словах. Отдельно проверить границы: может ли показатель быть 0.</div></li>
+    <li><div><b>Чтобы доказать «не принадлежит»</b>, строить вывод по первой букве и показать шаг, где не подходит ни одно правило.</div></li>
+    <li><div><b>Чтобы построить грамматику</b>, найти пары равных букв, вложить их матрёшкой и на каждый уровень завести нетерминал. Выход: <span class="mono">bc</span>, если пар минимум одна, и <span class="mono">ε</span>, если пар может не быть.</div></li>
+  </ol>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = (id)=>document.getElementById(id);
+const el = (tag, cls, txt)=>{const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;};
+const SVGNS="http://www.w3.org/2000/svg";
+const sv=(tag,attrs)=>{const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e;};
+const isUpper = s => /^[A-Z]$/.test(s);
+function symChip(s, extra){
+  const cls = s==="ε" ? "eps" : (isUpper(s) ? "nt" : "t");
+  return el("span","sym "+cls+(extra?" "+extra:""), s);
+}
+
+/* Generic leftmost derivation on strings (single-letter symbols) */
+function deriveForms(rules, seq){
+  let f="S"; const out=[{f, n:null}];
+  for(const n of seq){
+    const r = rules.find(x=>x.n===n);
+    const i = [...f].findIndex(isUpper);
+    f = f.slice(0,i) + r.r.join("") + f.slice(i+1);
+    out.push({f, n});
+  }
+  return out;
+}
+function histInto(box, forms){
+  box.innerHTML="";
+  forms.forEach((x,idx)=>{
+    if(idx>0){ box.appendChild(el("span","ar"," ⇒")); box.appendChild(el("span","rn","("+x.n+")")); box.appendChild(document.createTextNode(" ")); }
+    box.appendChild(document.createTextNode(x.f===""?"ε":x.f));
+  });
+}
+
+/* ---------- Interactive deriver with tree ---------- */
+function createDeriver(root, cfg){
+  const g = cfg.grammar;
+  const sep = cfg.sep || "";
+  let mode = cfg.mode || "left";
+  let st, hist=[], timer=null, fresh=new Set();
+
+  const top = el("div","ctrl"); top.style.marginTop="0";
+  if(cfg.modes){
+    const bl = el("button","btn","Левосторонний"), br = el("button","btn","Правосторонний");
+    const sync=()=>{bl.classList.toggle("on",mode==="left"); br.classList.toggle("on",mode==="right");};
+    bl.onclick=()=>{mode="left";sync();reset();};
+    br.onclick=()=>{mode="right";sync();reset();};
+    top.append(bl,br); sync();
+  }
+  const status = el("p","status");
+  const chain = el("div","chain"); chain.setAttribute("aria-live","polite");
+  const rulesBox = el("div","rules");
+  const ctrl = el("div","ctrl");
+  const histBox = el("div","hist");
+  const treeBox = el("div","treebox");
+  if(cfg.modes) root.appendChild(top);
+  root.append(status, chain, rulesBox, ctrl, histBox, treeBox);
+
+  const btnUndo = el("button","btn","← Шаг назад");
+  const btnReset = el("button","btn","Сначала");
+  btnUndo.onclick=()=>{stop(); undo();};
+  btnReset.onclick=()=>{stop(); reset();};
+  ctrl.append(btnUndo, btnReset);
+  (cfg.presets||[]).forEach(p=>{
+    const b = el("button","btn primary","▶ "+p.label);
+    b.onclick=()=>play(p.rules());
+    ctrl.appendChild(b);
+  });
+
+  const ruleBtns = g.rules.map(r=>{
+    const b = el("button","rbtn");
+    b.appendChild(el("span","rn",r.n+"."));
+    b.appendChild(document.createTextNode(r.l+" → "+(r.r.length?r.r.join(sep):"ε")));
+    b.onclick=()=>{stop(); apply(r);};
+    rulesBox.appendChild(b);
+    return {b,r};
+  });
+
+  function isNT(s){ return g.nts.includes(s); }
+  function reset(){
+    st={nodes:{0:{s:(g.start||"S"),ch:[],step:null}}, form:[0], next:1, steps:[]};
+    hist=[]; fresh=new Set([0]); render();
+  }
+  function targetIdx(){
+    const idx=[]; st.form.forEach((id,i)=>{ if(isNT(st.nodes[id].s)) idx.push(i); });
+    if(!idx.length) return -1;
+    return mode==="left" ? idx[0] : idx[idx.length-1];
+  }
+  function formStr(){ return st.form.map(id=>st.nodes[id].s).join(sep); }
+  function apply(r, quiet){
+    const ti = targetIdx(); if(ti<0) return false;
+    const nid = st.form[ti], node = st.nodes[nid];
+    if(node.s!==r.l) return false;
+    hist.push(JSON.stringify(st));
+    fresh = new Set();
+    const syms = r.r.length ? r.r : ["ε"];
+    const kids = syms.map(s=>{ const id=st.next++; st.nodes[id]={s,ch:[],step:null}; fresh.add(id); return id; });
+    node.ch = kids; node.step = st.steps.length+1;
+    st.form.splice(ti,1,...(r.r.length?kids:[]));
+    st.steps.push({n:r.n, f:formStr()});
+    if(!quiet) render();
+    return true;
+  }
+  function undo(){ if(!hist.length) return; st=JSON.parse(hist.pop()); fresh=new Set(); render(); }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+  function play(seq){
+    stop(); reset(); let i=0;
+    const run=()=>{ if(i>=seq.length){ stop(); return; } apply(g.rules.find(x=>x.n===seq[i++])); };
+    if(reduce){ seq.forEach(n=>apply(g.rules.find(x=>x.n===n),true)); fresh=new Set(); render(); return; }
+    timer=setInterval(run, 850);
+  }
+  function instant(seq){ reset(); seq.forEach(n=>apply(g.rules.find(x=>x.n===n),true)); fresh=new Set(); render(); }
+
+  function render(){
+    const ti = targetIdx();
+    chain.innerHTML="";
+    if(!st.form.length) chain.appendChild(symChip("ε"));
+    st.form.forEach((id,i)=>{ const sy=st.nodes[id].s; const c=el("span","sym "+(isNT(sy)?"nt":"t")+(i===ti?" target":"")+(fresh.has(id)?" fresh":""), sy); chain.appendChild(c); });
+    if(ti<0){
+      status.innerHTML = "Вывод закончен: нетерминалов не осталось. Получено слово <b class='mono'>"+(formStr()||"ε")+"</b> за "+st.steps.length+" шаг(ов).";
+    } else {
+      const s = st.nodes[st.form[ti]].s;
+      const ok = g.rules.filter(r=>r.l===s).map(r=>r.n).join(", ");
+      status.innerHTML = "Заменяем <b class='mono'>"+s+"</b> — самый "+(mode==="left"?"левый":"правый")+" нетерминал. Подходят правила: "+ok+".";
+    }
+    ruleBtns.forEach(({b,r})=>{ b.disabled = ti<0 || st.nodes[st.form[ti]].s!==r.l; });
+    btnUndo.disabled = !hist.length;
+    histBox.innerHTML="";
+    histBox.appendChild(document.createTextNode(g.start||"S"));
+    st.steps.forEach(x=>{ histBox.appendChild(el("span","ar"," ⇒")); histBox.appendChild(el("span","rn","("+x.n+")")); histBox.appendChild(document.createTextNode(" "+(x.f||"ε"))); });
+    drawTree(ti>=0 ? st.form[ti] : -1);
+  }
+
+  function drawTree(tgtId){
+    let leaf=0, maxD=0; const pos={};
+    (function rec(id,d){
+      const n=st.nodes[id]; maxD=Math.max(maxD,d);
+      if(!n.ch.length){ pos[id]={x:leaf++, d}; }
+      else { n.ch.forEach(c=>rec(c,d+1)); pos[id]={x:(pos[n.ch[0]].x+pos[n.ch[n.ch.length-1]].x)/2, d}; }
+    })(0,0);
+    const gap=cfg.gap||46, vg=58, pad=cfg.wide?60:28;
+    const W = pad*2 + Math.max(0,leaf-1)*gap, H = pad*2 + maxD*vg;
+    const svg = sv("svg",{viewBox:"0 0 "+W+" "+H, width:W, height:H, role:"img","aria-label":"Дерево вывода"});
+    const X=id=>pad+pos[id].x*gap, Y=id=>pad+pos[id].d*vg;
+    Object.keys(st.nodes).forEach(k=>{ const id=+k, n=st.nodes[id]; if(!(id in pos)) return;
+      n.ch.forEach(c=>svg.appendChild(sv("line",{class:"tedge",x1:X(id),y1:Y(id)+15,x2:X(c),y2:Y(c)-15})));
+    });
+    Object.keys(st.nodes).forEach(k=>{ const id=+k, n=st.nodes[id]; if(!(id in pos)) return;
+      const type = n.s==="ε"?"eps":(isNT(n.s)?"nt":"t");
+      const gr = sv("g",{class:"tnode "+type+(cfg.wide?" wide":"")+(fresh.has(id)?" new":"")+(id===tgtId?" tgt":"")});
+      if(cfg.wide){ const w=Math.max(34,n.s.length*9+16); gr.appendChild(sv("rect",{x:X(id)-w/2,y:Y(id)-15,width:w,height:30,rx:8})); }
+      else gr.appendChild(sv("circle",{cx:X(id),cy:Y(id),r:15}));
+      const t=sv("text",{x:X(id),y:Y(id)}); t.textContent=n.s; gr.appendChild(t);
+      if(cfg.showOrder && n.step){
+        gr.appendChild(sv("circle",{class:"order-bg",cx:X(id)+15,cy:Y(id)-13,r:8.5}));
+        const o=sv("text",{class:"order",x:X(id)+15,y:Y(id)-13,"text-anchor":"middle","dominant-baseline":"central"}); o.textContent=n.step; gr.appendChild(o);
+      }
+      svg.appendChild(gr);
+    });
+    treeBox.innerHTML=""; treeBox.appendChild(svg);
+  }
+  return {reset, instant, play};
+}
+
+const G = {nts:["S","A"], rules:[
+  {n:1,l:"S",r:["a","S","c"]},{n:2,l:"S",r:["A"]},{n:3,l:"A",r:["b","A"]},{n:4,l:"A",r:["b"]}]};
+const G1 = {nts:["S","A","B"], rules:[
+  {n:1,l:"S",r:["A","B"]},{n:2,l:"A",r:["0","1"]},{n:3,l:"A",r:["0","A","1"]},{n:4,l:"B",r:["2"]},{n:5,l:"B",r:["2","B"]}]};
+
+const d1 = createDeriver($("d1"), {grammar:G, presets:[{label:"Показать вывод aabbbcc", rules:()=>[1,1,2,3,3,4]}]});
+d1.instant([1,1,2,3,3,4]);
+
+let d2mode = "left";
+const d2 = createDeriver($("d2"), {grammar:G1, modes:true, showOrder:true,
+  presets:[{label:"Показать вывод 00112", rules:()=>{
+    const left = document.querySelector("#d2 .btn.on").textContent.startsWith("Лево");
+    return left ? [1,3,2,4] : [1,4,3,2];
+  }}]});
+d2.instant([1,3,2,4]);
+
+/* ---------- Section 3: language explorer ---------- */
+function word(n,k){ return "a".repeat(n)+"b".repeat(k)+"c".repeat(n); }
+function seqFor(n,k){ return [...Array(n).fill(1),2,...Array(k-1).fill(3),4]; }
+function upd3(){
+  const n=+$("ln").value, k=+$("lk").value;
+  $("lno").textContent=n; $("lko").textContent=k;
+  const w=word(n,k), box=$("lword"); box.innerHTML="";
+  [...w].forEach(ch=>box.appendChild(symChip(ch,"fresh")));
+  $("llen").textContent=2*n+k; $("lsteps").textContent=n+k+1;
+  histInto($("lhist"), deriveForms(G.rules, seqFor(n,k)));
+}
+["ln","lk"].forEach(id=>$(id).addEventListener("input",upd3)); upd3();
+
+function upd3b(){
+  const L=+$("lmax").value; $("lmaxo").textContent=L;
+  const list=[];
+  for(let n=0;2*n+1<=L;n++) for(let k=1;2*n+k<=L;k++) list.push(word(n,k));
+  list.sort((a,b)=>a.length-b.length||a.localeCompare(b));
+  const box=$("lwords"); box.innerHTML="";
+  list.forEach(w=>box.appendChild(el("span","word",w)));
+  $("lwcount").textContent="Всего слов: "+list.length+". Перебор: n = 0, 1, 2…, для каждого n все k ≥ 1, пока 2n + k ≤ "+L+".";
+}
+$("lmax").addEventListener("input",upd3b); upd3b();
+
+/* ---------- Section 4: membership trace ---------- */
+function analyze(w){
+  const steps=[];
+  const fail=t=>{steps.push({t,bad:true}); return {ok:false,steps};};
+  if(!/^[abc]*$/.test(w)) return fail("В слове есть символы не из VT = { a, b, c }. Такое слово не получить ни одним выводом.");
+  if(w.length===0) return fail("Пустое слово. Любой вывод проходит через A, а из A всегда получается хотя бы одна b.");
+  let i=0, j=w.length-1;
+  while(i<=j && w[i]==="a"){
+    if(w[j]!=="c") return fail("Символ "+(i+1)+" — a. Букву a ставит только правило 1 (S → aSc), и вместе с ней на другом краю появляется c. Но на месте "+(j+1)+" стоит «"+w[j]+"». Тупик.");
+    steps.push({t:"Символ "+(i+1)+" — a, символ "+(j+1)+" — c. Это пара a…c → правило 1.", f:w.slice(0,i+1)+"S"+w.slice(j), r:1});
+    i++; j--;
+  }
+  if(i>j) return fail("Из S осталось получить пустую цепочку. Правило 1 даст a, правило 2 даст A, а из A всегда выходит хотя бы одна b. Тупик: b в слове нет.");
+  const mid=w.slice(i,j+1);
+  if(w[i]!=="b") return fail("Середина «"+mid+"» начинается с «"+w[i]+"». a здесь уже без пары, а путь S → A даёт только буквы b. Тупик.");
+  steps.push({t:"Середина «"+mid+"» начинается с b → правило 2, дальше работаем с A.", f:w.slice(0,i)+"A"+w.slice(j+1), r:2});
+  for(let p=i;p<=j;p++){
+    if(w[p]!=="b") return fail("Из A получаются только буквы b, а на месте "+(p+1)+" стоит «"+w[p]+"». Тупик.");
+    if(p<j) steps.push({t:"Символ "+(p+1)+" — b, и это ещё не конец середины → правило 3.", f:w.slice(0,p+1)+"A"+w.slice(j+1), r:3});
+    else steps.push({t:"Символ "+(p+1)+" — последняя b → правило 4, вывод закончен.", f:w, r:4});
+  }
+  return {ok:true,steps};
+}
+function runCheck(){
+  const w=$("win").value.trim(); const res=analyze(w);
+  const ol=$("wtrace"); ol.innerHTML="";
+  res.steps.forEach((s,idx)=>{
+    const li=el("li",s.bad?"bad":"");
+    if(!reduce) li.style.animationDelay=(idx*0.18)+"s";
+    li.appendChild(el("span","i",s.bad?"✕":(idx+1)+""));
+    const d=el("div",null,s.t);
+    if(s.f) d.appendChild(el("span","f","⇒("+s.r+") "+s.f));
+    li.appendChild(d); ol.appendChild(li);
+  });
+  const na=(w.match(/a/g)||[]).length, nb=(w.match(/b/g)||[]).length, nc=(w.match(/c/g)||[]).length;
+  const v=$("wverdict"); v.className="verdict "+(res.ok?"ok":"bad");
+  v.textContent = (res.ok? "«"+w+"» ∈ L(G)" : "«"+(w||"ε")+"» ∉ L(G)") + " · по формуле: a — "+na+", b — "+nb+", c — "+nc+(res.ok?" (a = c, b ≥ 1)":"");
+}
+$("wgo").onclick=runCheck;
+$("win").addEventListener("keydown",e=>{ if(e.key==="Enter") runCheck(); });
+document.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{ $("win").value=b.dataset.w; runCheck(); });
+runCheck();
+
+/* ---------- Arc drawing ---------- */
+function drawArcs(box, letters, pairs, split){
+  const step=34, pad=22, base=0;
+  const W=pad*2+(letters.length-1)*step+10;
+  const maxSpan = pairs.reduce((m,p)=>Math.max(m,p.j-p.i),1);
+  const top = 14 + maxSpan*9;
+  const H = top+40;
+  const svg=sv("svg",{viewBox:"0 0 "+Math.max(W,60)+" "+H,width:Math.max(W,60),height:H,role:"img","aria-label":"Пары букв в слове"});
+  const X=i=>pad+5+i*step, yL=top+26;
+  pairs.forEach((p,idx)=>{
+    const x1=X(p.i), x2=X(p.j), h=10+(p.j-p.i)*9;
+    const path=sv("path",{class:"arc "+p.cls,d:"M"+x1+" "+(top+6)+" Q"+((x1+x2)/2)+" "+(top+6-h*1.9)+" "+x2+" "+(top+6)});
+    if(!reduce){ path.style.strokeDasharray="600"; path.style.strokeDashoffset="600"; path.style.transition="stroke-dashoffset .7s ease "+(idx*0.08)+"s"; requestAnimationFrame(()=>requestAnimationFrame(()=>{path.style.strokeDashoffset="0";})); }
+    svg.appendChild(path);
+  });
+  if(split!=null){ const x=X(split)-step/2; svg.appendChild(sv("line",{x1:x,y1:top-4,x2:x,y2:yL+10,stroke:"var(--t)","stroke-width":2,"stroke-dasharray":"4 4"})); }
+  letters.forEach((L,i)=>{ const t=sv("text",{class:"lt "+L.cls,x:X(i),y:yL}); t.textContent=L.ch; svg.appendChild(t); });
+  box.innerHTML=""; box.appendChild(svg); return svg;
+}
+
+/* ---------- Section 5: modify ---------- */
+let mMul=1;
+const Gm2 = [{n:1,l:"S",r:["a","S","c","c"]},{n:2,l:"S",r:["A"]},{n:3,l:"A",r:["b","A"]},{n:4,l:"A",r:["b"]}];
+function upd5(){
+  const n=+$("mn").value, k=+$("mk").value; $("mno").textContent=n; $("mko").textContent=k;
+  const letters=[]; for(let i=0;i<n;i++) letters.push({ch:"a",cls:"outer"});
+  for(let i=0;i<k;i++) letters.push({ch:"b",cls:"mid"});
+  const nc=n*mMul; for(let i=0;i<nc;i++) letters.push({ch:"c",cls:"outer"});
+  const end=letters.length-1, pairs=[];
+  for(let i=0;i<n;i++) for(let t=0;t<mMul;t++) pairs.push({i, j:end-i*mMul-t, cls:"outer"});
+  drawArcs($("marcs"), letters, pairs);
+  histInto($("mhist"), deriveForms(mMul===1?G.rules:Gm2, seqFor(n,k)));
+  $("m1").classList.toggle("on",mMul===1); $("m2").classList.toggle("on",mMul===2);
+}
+$("m1").onclick=()=>{mMul=1;upd5();}; $("m2").onclick=()=>{mMul=2;upd5();};
+["mn","mk"].forEach(id=>$(id).addEventListener("input",upd5)); upd5();
+
+/* ---------- Section 7: build ---------- */
+let bLang="A";
+const GA=[{n:1,l:"S",r:["a","S","d"]},{n:2,l:"S",r:["B"]},{n:3,l:"B",r:["b","B","c"]},{n:4,l:"B",r:["b","c"]}];
+const GB=[{n:1,l:"S",r:["a","S","c"]},{n:2,l:"S",r:["B"]},{n:3,l:"B",r:["b","B","c"]},{n:4,l:"B",r:[]}];
+function upd7(){
+  const mIn=$("bm");
+  mIn.min = bLang==="A" ? 1 : 0; if(+mIn.value<+mIn.min) mIn.value=mIn.min;
+  const n=+$("bn").value, m=+mIn.value; $("bno").textContent=n; $("bmo").textContent=m;
+  const letters=[], pairs=[];
+  for(let i=0;i<n;i++) letters.push({ch:"a",cls:"outer"});
+  for(let i=0;i<m;i++) letters.push({ch:"b",cls:"inner"});
+  for(let i=0;i<m;i++) letters.push({ch:"c",cls:"inner"});
+  for(let i=0;i<n;i++) letters.push({ch:bLang==="A"?"d":"c",cls:"outer"});
+  const L=letters.length;
+  for(let i=0;i<n;i++) pairs.push({i, j:L-1-i, cls:"outer"});
+  for(let t=0;t<m;t++) pairs.push({i:n+t, j:n+2*m-1-t, cls:"inner"});
+  const svg=drawArcs($("barcs"), letters, pairs, bLang==="B" && n>0 ? n+2*m : null);
+  const G7 = bLang==="A"?GA:GB;
+  const rb=$("brules"); rb.innerHTML="";
+  G7.forEach(r=>{
+    const cls = (r.n===1)?"outer":(r.n===3?"inner":"");
+    const s=el("span","grule "+cls, r.n+". "+r.l+" → "+(r.r.length?r.r.join(""):"ε"));
+    if(cls){ s.onmouseenter=()=>svg.classList.add("dim","hl-"+cls); s.onmouseleave=()=>svg.classList.remove("dim","hl-outer","hl-inner"); s.tabIndex=0; s.onfocus=s.onmouseenter; s.onblur=s.onmouseleave; }
+    rb.appendChild(s);
+  });
+  const seq=[...Array(n).fill(1),2];
+  if(bLang==="A"){ for(let t=0;t<m-1;t++) seq.push(3); seq.push(4); }
+  else { for(let t=0;t<m;t++) seq.push(3); seq.push(4); }
+  histInto($("bhist"), deriveForms(G7, seq));
+  const w = letters.map(x=>x.ch).join("");
+  if(bLang==="A"){
+    $("bexpl").innerHTML="Слово <b class='mono'>"+(w||"ε")+"</b>. Наведите на правило 1 или 3: подсветятся пары, которые оно строит.";
+    $("bnote").innerHTML="Почему выход <span class='mono'>B → bc</span>, а не <span class='mono'>B → ε</span>: по условию m ≥ 1, хотя бы одна пара b…c нужна всегда. А n ≥ 0, поэтому из S можно сразу уйти в B.";
+  } else {
+    $("bexpl").innerHTML="Слово <b class='mono'>"+(w||"ε")+"</b>. Пунктир делит cⁿ⁺ᵐ на cᵐ (пары для b) и cⁿ (пары для a): aⁿbᵐcⁿ⁺ᵐ = aⁿ (bᵐcᵐ) cⁿ.";
+    $("bnote").innerHTML="Хитрость: все c одинаковые, поэтому cⁿ⁺ᵐ можно мысленно разрезать на две группы. b стоят ближе к середине, чем a, значит и их c — ближе к середине. Получается та же матрёшка. m ≥ 0, поэтому выход <span class='mono'>B → ε</span>.";
+  }
+  $("bA").classList.toggle("on",bLang==="A"); $("bB").classList.toggle("on",bLang==="B");
+}
+$("bA").onclick=()=>{bLang="A";upd7();}; $("bB").onclick=()=>{bLang="B";upd7();};
+["bn","bm"].forEach(id=>$(id).addEventListener("input",upd7)); upd7();
+
+/* ---------- Quiz ---------- */
+const Q=[
+  {q:"Что такое VN?", o:["Множество нетерминалов","Множество правил","Буквы готового слова"], a:0, e:"VN — нетерминалы: символы, которые ещё будут заменены (S, A)."},
+  {q:"Сколько раз применяется правило 4 (A → b) в выводе любого слова G?", o:["Ровно 1 раз","k раз","Сколько угодно"], a:0, e:"Это единственное правило, которое заканчивает вывод, поэтому оно всегда последнее и одно."},
+  {q:"Какое слово принадлежит L(G) = { aⁿbᵏcⁿ, n ≥ 0, k ≥ 1 }?", o:["abcc","aabcc","aacc","ac"], a:1, e:"aabcc: две a, две c, одна b. В aacc и ac нет b, в abcc a ≠ c."},
+  {q:"За сколько шагов выводится aaabbccc?", o:["5","6","8"], a:1, e:"n = 3, k = 2: n + k + 1 = 6."},
+  {q:"Почему в G левосторонний и правосторонний вывод совпадают?", o:["Потому что в каждой цепочке один нетерминал","Потому что правил всего 4","Так бывает всегда"], a:0, e:"Когда нетерминал один, он и самый левый, и самый правый. В G₁ после S → AB их два, и выводы различаются."},
+  {q:"Для aⁿbᵐcᵐdⁿ при m ≥ 1 выход из B — это…", o:["B → ε","B → bc","S → B"], a:1, e:"Хотя бы одна пара b…c нужна всегда, поэтому последний шаг ставит bc."}
+];
+const qz=$("qz");
+Q.forEach((it,qi)=>{
+  const d=el("div","q"); d.appendChild(el("p",null,(qi+1)+". "+it.q));
+  const os=el("div","opts"), fb=el("div","fb"); fb.setAttribute("aria-live","polite");
+  it.o.forEach((t,oi)=>{
+    const b=el("button","opt",t);
+    b.onclick=()=>{
+      os.querySelectorAll(".opt").forEach(x=>x.classList.remove("right","wrong"));
+      if(oi===it.a){ b.classList.add("right"); fb.textContent="Верно. "+it.e; }
+      else { b.classList.add("wrong"); fb.textContent="Не совсем. Попробуйте ещё раз."; }
+    };
+    os.appendChild(b);
+  });
+  d.append(os,fb); qz.appendChild(d);
+});
+
+/* ---------- Chomsky hierarchy ---------- */
+(function(){
+  const ex=[
+    {w:"a*b*", l:3, e:"Сколько угодно a, потом сколько угодно b. Ничего считать не нужно — хватает регулярной грамматики (тип 3)."},
+    {w:"a²ⁿbc", l:3, e:"Грамматика 2 из лабораторной. Нужно только следить за чётностью числа a, это умеет регулярная грамматика."},
+    {w:"aⁿbᵏcⁿ", l:2, e:"Наша G. Число a должно равняться числу c — регулярная грамматика так «считать» не умеет. Нужен тип 2."},
+    {w:"(()())", l:2, e:"Правильные скобки: каждая открытая закрывается. Тип 2, как и синтаксис языков программирования."},
+    {w:"aⁿbⁿcⁿ", l:1, e:"Три равных счётчика сразу. Контекстно-свободной грамматики уже не хватает, нужен тип 1."}
+  ];
+  const box=$("hbtns"), rects=[...document.querySelectorAll("#hier rect")];
+  function pick(i){
+    const it=ex[i];
+    rects.forEach(r=>r.classList.toggle("on", +r.dataset.l===it.l));
+    const lab=$("hlab");
+    lab.setAttribute("y", it.l===3?180:(it.l===2?218:(it.l===1?232:248)));
+    lab.textContent=it.w;
+    $("hexpl").textContent=it.e;
+    box.querySelectorAll(".opt").forEach((b,j)=>b.classList.toggle("right",j===i));
+  }
+  ex.forEach((it,i)=>{ const b=el("button","opt mono",it.w); b.onclick=()=>pick(i); box.appendChild(b); });
+  pick(2);
+})();
+
+/* ---------- Grammar as a filter ---------- */
+(function(){
+  let w="aab", timer=null, done=false;
+  const C=[{t:"a",lab:"a"},{t:"b",lab:"b"},{t:"c",lab:"c"},{t:"end",lab:"конец"}];
+  function cnt(){ return {na:(w.match(/a/g)||[]).length, nb:(w.match(/b/g)||[]).length, nc:(w.match(/c/g)||[]).length}; }
+  function check(t){
+    const {na,nb,nc}=cnt();
+    if(t==="a") return (nb===0&&nc===0)?{ok:true,why:"b и c ещё не было — можно добавить ещё одну пару a…c"}:{ok:false,why:"после b буква a стоять не может"};
+    if(t==="b") return nc===0?{ok:true,why:"c ещё не было — b можно добавлять"}:{ok:false,why:"после c буква b стоять не может"};
+    if(t==="c"){ if(nb===0) return {ok:false,why:"сначала нужна хотя бы одна b"}; return nc<na?{ok:true,why:"c пока меньше, чем a ("+nc+" из "+na+")"}:{ok:false,why:"c уже столько же, сколько a ("+na+")"}; }
+    if(nb===0) return {ok:false,why:"без b слово не входит в язык"};
+    return nc===na?{ok:true,why:"a и c поровну, b есть — слово готово"}:{ok:false,why:"нужно ещё "+(na-nc)+" c, чтобы a и c сравнялись"};
+  }
+  function add(t){
+    if(done) return;
+    if(t==="end"){ done=true; $("genmsg").textContent="Готово: «"+w+"» принадлежит L(G). Модель не могла ошибиться — грамматика не дала."; }
+    else { w+=t; $("genmsg").textContent=""; }
+    render();
+  }
+  function render(){
+    const box=$("genword"); box.innerHTML="";
+    if(!w) box.appendChild(el("span","status","пока пусто"));
+    [...w].forEach((ch,i)=>box.appendChild(symChip(ch, i===w.length-1?"fresh":"")));
+    const cb=$("gencands"); cb.innerHTML="";
+    C.forEach(c=>{
+      const r=check(c.t), d=el("div","cand "+(done?"no":(r.ok?"yes":"no")));
+      d.appendChild(el("span","big",c.lab));
+      d.appendChild(el("span","st", done?"слово закончено":(r.ok?"✓ разрешено":"✕ запрещено")));
+      d.appendChild(el("span","why", done?"":r.why));
+      if(!done && r.ok){ const b=el("button","btn","Дописать"); b.onclick=()=>{stop(); add(c.t);}; d.appendChild(b); }
+      cb.appendChild(d);
+    });
+  }
+  function stop(){ if(timer){clearInterval(timer);timer=null;} }
+  function auto(){
+    if(done){ stop(); return; }
+    let ok=C.filter(c=>check(c.t).ok).map(c=>c.t);
+    if(w.length>=8){ if(ok.includes("end")) ok=["end"]; else if(ok.includes("c")) ok=["c"]; }
+    add(ok[Math.floor(Math.random()*ok.length)]);
+  }
+  $("genrun").onclick=()=>{ stop(); if(done){ w=""; done=false; }
+    if(reduce){ let g=0; while(!done&&g++<30) auto(); return; }
+    timer=setInterval(auto,800); };
+  $("genreset").onclick=()=>{ stop(); w=""; done=false; $("genmsg").textContent=""; render(); };
+  render();
+})();
+
+/* ---------- Sentence parse ---------- */
+(function(){
+  const GS={nts:["Предложение","Подлежащее","Сказуемое","Дополнение"], rules:[
+    {n:1,l:"Предложение",r:["Подлежащее","Сказуемое"]},{n:2,l:"Подлежащее",r:["кот"]},{n:3,l:"Подлежащее",r:["пёс"]},
+    {n:4,l:"Сказуемое",r:["видит","Дополнение"]},{n:5,l:"Дополнение",r:["мышь"]},{n:6,l:"Дополнение",r:["мяч"]}]};
+  GS.start="Предложение";
+  const d=createDeriver($("d3"),{grammar:GS, sep:" ", wide:true, gap:110, presets:[{label:"Показать вывод «кот видит мышь»", rules:()=>[1,2,4,5]}]});
+  d.instant([1,2,4,5]);
+})();
+
+/* ---------- TOC highlight ---------- */
+const links=[...document.querySelectorAll("nav.toc a")];
+if("IntersectionObserver" in window){
+  const io=new IntersectionObserver(es=>{ es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle("active", a.getAttribute("href")==="#"+e.target.id)); } }); },{rootMargin:"-30% 0px -60% 0px"});
+  document.querySelectorAll("main section").forEach(s=>io.observe(s));
+}
+})();
+</script>
+</body>
+</html>
