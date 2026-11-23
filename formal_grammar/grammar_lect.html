@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gramatici formale: teorie și practică</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky table of contents on the left, lecture column on the right; every idea = text + live widget */
+:root{
+  --bg:#f4f6f8;
+  --paper:#ffffff;
+  --ink:#1b2230;
+  --muted:#5d6676;
+  --line:#dde2ea;
+  --nt:#2756c9;        /* neterminale */
+  --nt-soft:#e4ebfb;
+  --t:#b8530f;         /* terminale */
+  --t-soft:#fbeadf;
+  --inner:#0f8a6b;     /* perechi interioare */
+  --inner-soft:#dcf2ea;
+  --ok:#1d7a3e; --ok-soft:#e2f3e7;
+  --bad:#b42323; --bad-soft:#fae3e3;
+  --display:"Literata", Georgia, "Times New Roman", serif;
+  --body:"IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --mono:"JetBrains Mono", Consolas, "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151c; --paper:#181d26; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2a3140;
+    --nt:#7fa2ff; --nt-soft:#1f2a45; --t:#f0995a; --t-soft:#3a2617;
+    --inner:#4fd1a8; --inner-soft:#15352c;
+    --ok:#5bd17f; --ok-soft:#163222; --bad:#ff7a7a; --bad-soft:#3a1a1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151c; --paper:#181d26; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2a3140;
+  --nt:#7fa2ff; --nt-soft:#1f2a45; --t:#f0995a; --t-soft:#3a2617;
+  --inner:#4fd1a8; --inner-soft:#15352c;
+  --ok:#5bd17f; --ok-soft:#163222; --bad:#ff7a7a; --bad-soft:#3a1a1a;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16.5px;line-height:1.6}
+a{color:var(--nt)}
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:32px 24px 80px}
+nav.toc{position:sticky;top:24px;align-self:start;font-size:14px}
+nav.toc h2{font-family:var(--display);font-size:17px;margin:0 0 10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px;counter-reset:t}
+nav.toc a{display:flex;gap:8px;padding:6px 10px;border-radius:8px;color:var(--muted);text-decoration:none}
+nav.toc a span{font-family:var(--mono);font-size:12px;color:var(--nt);min-width:18px;padding-top:2px}
+nav.toc a:hover,nav.toc a.active{background:var(--paper);color:var(--ink)}
+main{min-width:0}
+header.hero{padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.kicker{font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:.02em}
+h1{font-family:var(--display);font-size:clamp(30px,4vw,42px);line-height:1.15;margin:8px 0 12px;text-wrap:balance}
+h2{font-family:var(--display);font-size:27px;line-height:1.25;margin:0 0 6px;text-wrap:balance}
+h3{font-size:17px;margin:22px 0 6px}
+p{margin:0 0 12px;max-width:68ch}
+.lead{font-size:18px;color:var(--muted);max-width:62ch}
+section{padding:44px 0 8px;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;margin-bottom:12px}
+.num{font-family:var(--mono);color:var(--nt);font-size:15px}
+.task-tag{font-size:13px;padding:2px 10px;border-radius:999px;background:var(--t-soft);color:var(--t);font-weight:600;white-space:nowrap}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0}
+.card h4{margin:0 0 10px;font-size:15px;color:var(--muted);font-weight:600;text-transform:none}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.mini{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
+.mini b{font-family:var(--mono);font-size:20px;display:block;margin-bottom:4px}
+.mini small{color:var(--muted);font-size:14px;line-height:1.45;display:block}
+.mono{font-family:var(--mono)}
+.sym{font-family:var(--mono);font-weight:600;display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:30px;padding:0 6px;border-radius:7px;margin:2px 1px;font-size:16px}
+.sym.nt{background:var(--nt-soft);color:var(--nt);border:1.5px solid var(--nt)}
+.sym.t{background:var(--t-soft);color:var(--t);border:1.5px solid transparent}
+.sym.eps{background:transparent;color:var(--muted);border:1.5px dashed var(--line)}
+.sym.target{box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--nt)}
+.sym.fresh{animation:pop .45s ease-out}
+@keyframes pop{from{transform:translateY(-8px) scale(.6);opacity:0}to{transform:none;opacity:1}}
+.chain{display:flex;flex-wrap:wrap;align-items:center;min-height:46px;padding:8px 0}
+.status{font-size:15px;color:var(--muted);margin:4px 0 10px}
+.rules{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+button{font:inherit;cursor:pointer}
+.rbtn{font-family:var(--mono);font-size:15px;border:1.5px solid var(--nt);background:var(--paper);color:var(--ink);border-radius:9px;padding:6px 12px;transition:background .15s}
+.rbtn:hover:not(:disabled){background:var(--nt-soft)}
+.rbtn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line)}
+.rbtn .rn{color:var(--nt);font-weight:600;margin-right:6px}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:9px;padding:6px 14px;font-size:14px}
+.btn:hover{border-color:var(--nt)}
+.btn.primary{background:var(--nt);border-color:var(--nt);color:#fff}
+.btn.on{background:var(--nt-soft);border-color:var(--nt);color:var(--nt);font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--nt);outline-offset:2px}
+.hist{font-family:var(--mono);font-size:14.5px;background:var(--bg);border-radius:10px;padding:10px 12px;line-height:1.9;overflow-x:auto;white-space:nowrap}
+.hist .ar{color:var(--muted)}
+.hist .rn{color:var(--nt);font-size:12px;vertical-align:super}
+.treebox{overflow-x:auto;margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+.treebox svg{display:block;margin:0 auto}
+svg text{font-family:var(--mono)}
+.tnode circle{stroke-width:1.8}
+.tnode.nt circle{fill:var(--nt-soft);stroke:var(--nt)}
+.tnode.t circle{fill:var(--t-soft);stroke:var(--t)}
+.tnode.eps circle{fill:var(--paper);stroke:var(--line);stroke-dasharray:3 3}
+.tnode text{font-size:15px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.tnode.nt text{fill:var(--nt)} .tnode.t text{fill:var(--t)} .tnode.eps text{fill:var(--muted)}
+.tnode.tgt circle{stroke-width:3.5}
+.tnode.new{animation:grow .5s ease-out;transform-box:fill-box;transform-origin:center}
+@keyframes grow{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+.tedge{stroke:var(--muted);stroke-width:1.4;opacity:.7}
+.order{font-size:11px;fill:var(--paper)}
+.order-bg{fill:var(--ink)}
+.two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+table.tbl{border-collapse:collapse;width:100%;font-size:15px;margin:8px 0}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.tbl th{color:var(--muted);font-weight:600;font-size:13.5px}
+.tbl td.mono{white-space:nowrap}
+.pill{display:inline-block;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px}
+.pill.rep{background:var(--nt-soft);color:var(--nt)}
+.pill.exit{background:var(--ok-soft);color:var(--ok)}
+.slider{display:grid;grid-template-columns:110px minmax(0,1fr) 40px;gap:10px;align-items:center;margin:6px 0}
+.slider label{font-size:15px}
+.slider output{font-family:var(--mono);font-weight:600;text-align:right}
+input[type=range]{width:100%;accent-color:var(--nt)}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.stat{background:var(--bg);border-radius:10px;padding:8px 12px;font-size:14px}
+.stat b{font-family:var(--mono);font-size:17px;color:var(--ink);margin-left:4px}
+.words{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.word{font-family:var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:14.5px}
+.inrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.inrow input[type=text]{font-family:var(--mono);font-size:17px;padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);width:220px}
+.trace{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.trace li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;background:var(--bg);border-radius:10px;padding:10px 12px;font-size:15px;animation:slide .35s ease-out both}
+.trace li .i{font-family:var(--mono);color:var(--nt);font-weight:600}
+.trace li.bad{background:var(--bad-soft)} .trace li.bad .i{color:var(--bad)}
+.trace .f{font-family:var(--mono);color:var(--muted);display:block;margin-top:2px}
+@keyframes slide{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.verdict{margin-top:12px;padding:10px 14px;border-radius:10px;font-weight:600}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)} .verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.arcs{overflow-x:auto;padding:4px 0}
+.arcs svg{display:block}
+.arc{fill:none;stroke-width:2.2;transition:opacity .2s,stroke-width .2s}
+.arc.outer{stroke:var(--nt)} .arc.inner{stroke:var(--inner)}
+.lt{font-size:19px;font-weight:600;text-anchor:middle}
+.lt.outer{fill:var(--nt)} .lt.inner{fill:var(--inner)} .lt.mid{fill:var(--t)}
+.dim .arc{opacity:.15}
+.dim.hl-outer .arc.outer,.dim.hl-inner .arc.inner{opacity:1;stroke-width:3.2}
+.grule{font-family:var(--mono);font-size:15px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);display:inline-block;margin:3px 4px 3px 0;cursor:default}
+.grule.outer{border-color:var(--nt)} .grule.inner{border-color:var(--inner)}
+.note{border-left:3px solid var(--t);padding:6px 14px;background:var(--paper);border-radius:0 10px 10px 0;margin:14px 0;max-width:70ch}
+.steps-algo{counter-reset:s;list-style:none;padding:0;margin:12px 0;display:grid;gap:10px}
+.steps-algo li{counter-increment:s;display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.steps-algo li::before{content:counter(s);font-family:var(--display);font-weight:700;font-size:22px;color:var(--nt)}
+.quiz .q{margin-bottom:18px}
+.quiz .q p{font-weight:600;margin-bottom:8px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:9px;padding:7px 14px;font-size:15px}
+.opt:hover{border-color:var(--nt)}
+.opt.right{border-color:var(--ok);background:var(--ok-soft);color:var(--ok);font-weight:600}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.fb{font-size:14.5px;color:var(--muted);margin-top:6px;min-height:1.4em}
+.map td:first-child{white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--muted);margin:6px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:4px;border-radius:2px;display:inline-block}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.grid3 .mini b{font-family:var(--display);font-size:18px}
+.aicard b{font-family:var(--display);font-size:17px;line-height:1.3;margin-bottom:6px}
+.timeline{list-style:none;padding:0;margin:12px 0;display:grid;gap:0;border-left:2px solid var(--line);margin-left:8px}
+.timeline li{display:grid;grid-template-columns:78px minmax(0,1fr);gap:12px;padding:8px 0 8px 18px;position:relative;font-size:15.5px;max-width:72ch}
+.timeline li::before{content:"";position:absolute;left:-7px;top:15px;width:12px;height:12px;border-radius:50%;background:var(--paper);border:2px solid var(--nt)}
+.timeline .yr{font-family:var(--mono);font-weight:600;color:var(--nt)}
+.hier rect{fill:none;stroke:var(--line);stroke-width:1.6;transition:fill .3s,stroke .3s,stroke-width .3s}
+.hier rect.on{fill:var(--nt-soft);stroke:var(--nt);stroke-width:3}
+.hier text{font-family:var(--body);font-size:13px;fill:var(--muted)}
+.hier .hlab{font-family:var(--mono);font-size:17px;font-weight:600;fill:var(--t);text-anchor:middle}
+.pt rect{stroke-width:1.6}
+.pt.nt rect{fill:var(--nt-soft);stroke:var(--nt)} .pt.t rect{fill:var(--t-soft);stroke:var(--t)}
+.pt text{font-family:var(--body);font-size:13.5px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.pt.nt text{fill:var(--nt)} .pt.t text{fill:var(--t)}
+.tnode rect{stroke-width:1.8}
+.tnode.nt rect{fill:var(--nt-soft);stroke:var(--nt)} .tnode.t rect{fill:var(--t-soft);stroke:var(--t)}
+.tnode.wide text{font-family:var(--body);font-size:13.5px}
+.cands{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+.cand{border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--paper);display:flex;flex-direction:column;gap:6px}
+.cand .big{font-family:var(--mono);font-size:24px;font-weight:600;color:var(--t)}
+.cand.yes{border-color:var(--ok);background:var(--ok-soft)}
+.cand.no{opacity:.85}
+.cand .why{font-size:13.5px;color:var(--muted);line-height:1.4;flex:1}
+.cand .st{font-size:13px;font-weight:600}
+.cand.yes .st{color:var(--ok)} .cand.no .st{color:var(--bad)}
+@media (max-width:640px){ .cands{grid-template-columns:repeat(2,minmax(0,1fr))} }
+pre.code{font-family:var(--mono);font-size:15px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;line-height:1.6;margin:10px 0}
+pre.code .cm{color:var(--muted)}
+.rbtn.allow{border-color:var(--ok);background:var(--ok-soft)}
+.trace li.okk{background:var(--ok-soft)} .trace li.okk .i{color:var(--ok)}
+@media (max-width:900px){ .grid3{grid-template-columns:1fr} }
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr;gap:0;padding:16px 16px 60px}
+  nav.toc{position:static;margin-bottom:8px}
+  nav.toc ol{display:flex;overflow-x:auto;gap:4px;padding-bottom:6px}
+  nav.toc a{white-space:nowrap;background:var(--paper)}
+  nav.toc h2{display:none}
+  .two,.grid2{grid-template-columns:1fr}
+  .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:420px){ .grid4{grid-template-columns:1fr} .slider{grid-template-columns:80px minmax(0,1fr) 34px} }
+@media (prefers-reduced-motion: reduce){ *{animation:none !important;transition:none !important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Cuprins">
+  <h2>Cuprins</h2>
+  <ol>
+    <li><a href="#intro"><span>1</span>Introducere</a></li>
+    <li><a href="#ai"><span>2</span>De ce contează în IA</a></li>
+    <li><a href="#what"><span>3</span>Ce este o gramatică</a></li>
+    <li><a href="#derive"><span>4</span>Derivare și arbore</a></li>
+    <li><a href="#language"><span>5</span>Cum găsim limbajul</a></li>
+    <li><a href="#check"><span>6</span>Aparține cuvântul?</a></li>
+    <li><a href="#modify"><span>7</span>Modificarea condiției</a></li>
+    <li><a href="#leftright"><span>8</span>Derivare la stânga și la dreapta</a></li>
+    <li><a href="#build"><span>9</span>Gramatica după limbaj</a></li>
+    <li><a href="#quiz"><span>10</span>Verifică-te</a></li>
+    <li><a href="#algo"><span>11</span>Rezumat</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">Lucrarea de laborator nr. 11 · curs</div>
+  <h1>Gramatici formale: de la reguli la limbaj</h1>
+  <p class="lead">O gramatică este un set de reguli de înlocuire. Aplicându-le pe rând, obținem cuvinte. Toate cuvintele care pot fi obținute formează limbajul gramaticii.</p>
+  <div class="card">
+    <h4>Unde se explică fiecare temă</h4>
+    <table class="tbl map">
+      <tr><th>Secțiunea cursului</th><th>Ce se analizează</th><th>Sarcina</th></tr>
+      <tr><td><a href="#intro">1. Introducere</a></td><td>Alfabet, cuvânt, limbaj; de unde provin gramaticile</td><td>—</td></tr>
+      <tr><td><a href="#ai">2. De ce contează în IA</a></td><td>Modele de limbaj, analiza textului, cod</td><td>—</td></tr>
+      <tr><td><a href="#what">3. Ce este o gramatică</a></td><td>Notația G = (VN, VT, P, S)</td><td>toate</td></tr>
+      <tr><td><a href="#derive">4. Derivare și arbore</a></td><td>Derivarea la stânga, arborele de derivare</td><td>2</td></tr>
+      <tr><td><a href="#language">5. Cum găsim limbajul</a></td><td>L(G), numărul de pași, cuvinte de lungime ≤ 4</td><td>1, 5, 6</td></tr>
+      <tr><td><a href="#check">6. Aparține cuvântul?</a></td><td>Cum demonstrăm că un cuvânt nu aparține limbajului</td><td>3</td></tr>
+      <tr><td><a href="#modify">7. Modificarea condiției</a></td><td>Ce regulă se modifică</td><td>4</td></tr>
+      <tr><td><a href="#leftright">8. Derivare la stânga și la dreapta</a></td><td>De ce derivările pot diferi</td><td>7</td></tr>
+      <tr><td><a href="#build">9. Gramatica după limbaj</a></td><td>Perechi de litere și „matrioșka”</td><td>8, 9</td></tr>
+    </table>
+  </div>
+</header>
+
+<!-- intro -->
+<section id="intro">
+  <div class="sec-head"><span class="num">01</span><h2>Introducere: limbajul ca mulțime de cuvinte</h2></div>
+  <p>Limba română este infinită: putem alcătui oricâte propoziții. Dar o listă infinită nu poate fi învățată. Cunoaștem un set finit de reguli și, după el, construim și înțelegem orice propoziție nouă. O gramatică formală face același lucru, riguros: <b>un set finit de reguli descrie o mulțime infinită de cuvinte</b>.</p>
+  <div class="grid3">
+    <div class="mini"><b>Alfabet</b><small>Un set finit de simboluri. Exemplu: { a, b, c } sau { 0, 1, 2 }.</small></div>
+    <div class="mini"><b>Cuvânt</b><small>O secvență finită de simboluri din alfabet: <span class="mono">abbc</span>, <span class="mono">00112</span>. Cuvântul vid se notează <span class="mono">ε</span>.</small></div>
+    <div class="mini"><b>Limbaj</b><small>O mulțime de cuvinte, de obicei infinită: <span class="mono">{ b, bb, abc, aabcc, … }</span>.</small></div>
+  </div>
+  <p>Cu o gramatică sunt legate două probleme:</p>
+  <div class="grid2">
+    <div class="mini"><b style="font-size:17px">Generarea</b><small>Obținerea cuvintelor limbajului după reguli. Asta facem când construim o derivare.</small></div>
+    <div class="mini"><b style="font-size:17px">Recunoașterea</b><small>Se dă un cuvânt: aparține el limbajului? Asta facem în sarcina 3.</small></div>
+  </div>
+  <h3>De unde provine</h3>
+  <ol class="timeline">
+    <li><span class="yr">1956</span><span>Noam Chomsky propune clasificarea gramaticilor după forma regulilor. Așa apare ierarhia despre care vorbim mai jos.</span></li>
+    <li><span class="yr">1960</span><span>Sintaxa limbajului ALGOL 60 este scrisă în forma Backus–Naur (BNF). De atunci, limbajele de programare se descriu prin gramatici.</span></li>
+    <li><span class="yr">azi</span><span>Gramaticile restricționează răspunsurile modelelor de limbaj, ca acestea să producă JSON, SQL sau cod corect.</span></li>
+  </ol>
+</section>
+
+<!-- ai -->
+<section id="ai">
+  <div class="sec-head"><span class="num">02</span><h2>De ce sunt necesare gramaticile în inteligența artificială</h2></div>
+  <p>Gramaticile sunt unul dintre cele mai vechi instrumente ale IA, iar astăzi sunt din nou folosite. Oriunde o mașină trebuie să înțeleagă sau să producă un text cu structură strictă, în spate stă o gramatică.</p>
+  <div class="grid2">
+    <div class="mini aicard"><b>Modele de limbaj și răspuns structurat</b><small>Modelul alege următorul token. Gramatica interzice dinainte tokenii după care cuvântul nu mai poate ajunge în limbaj. Astfel modelul produce garantat JSON, SQL sau un apel de funcție corect. Astfel de restricții sunt suportate, de exemplu, de llama.cpp (formatul GBNF) și de modurile structured output ale API-urilor de modele.</small></div>
+    <div class="mini aicard"><b>Analiza limbajului natural</b><small>Propoziția se descompune într-un arbore după gramatică: subiect, predicat, complement. Arborele ajută să înțelegem cine ce face. Exemplu — mai jos.</small></div>
+    <div class="mini aicard"><b>Căutare în text și tokenizare</b><small>Gramaticile regulate (tipul 3, despre ele mai jos) stau la baza expresiilor regulate. Cu ele se găsesc în text date, sume, adrese de e-mail și se împarte textul în tokeni înainte de a-l da modelului.</small></div>
+    <div class="mini aicard"><b>Cod și compilatoare</b><small>Orice program în Python este analizat după gramatica limbajului înainte de rulare. SyntaxError înseamnă un singur lucru: textul vostru nu aparține limbajului Python.</small></div>
+  </div>
+
+  <h3>Exemplul 1. Gramatica drept filtru pentru un model de limbaj</h3>
+  <p>Un model de limbaj scrie răspunsul bucată cu bucată: la fiecare pas alege ce să adauge. Dacă răspunsul trebuie să aibă o formă strictă (de exemplu, JSON), modelului i se atașează o gramatică. Înainte de fiecare pas, gramatica verifică toate variantele și le păstrează doar pe cele după care răspunsul mai poate fi terminat corect.</p>
+  <p>Să arătăm asta pe limbajul nostru aⁿbᵏcⁿ. Mai jos sunt începutul deja scris al cuvântului și patru variante de continuare. Pentru fiecare se vede dacă gramatica o permite și de ce.</p>
+  <div class="card">
+    <h4>Deja scris</h4>
+    <div class="chain" id="genword"></div>
+    <div class="cands" id="gencands"></div>
+    <div class="ctrl">
+      <button class="btn primary" id="genrun">▶ Modelul continuă singur</button>
+      <button class="btn" id="genreset">De la început</button>
+    </div>
+    <p class="status" id="genmsg" style="margin-top:10px"></p>
+  </div>
+  <div class="note">La fel funcționează JSON: după <span class="mono">{"age":</span> gramatica va permite un număr sau un șir, dar va interzice <span class="mono">}</span>, pentru că valoarea încă nu a fost scrisă.</div>
+
+  <h3>Exemplul 2. Analiza unei propoziții</h3>
+  <p>O gramatică poate descrie și limba obișnuită. Neterminalele aici sunt părțile propoziției, terminalele sunt cuvintele. Derivați propoziția la fel cum ați derivat aabbbcc în secțiunea 4: apăsați pe reguli.</p>
+  <div class="card"><div class="mono" style="line-height:2">P = { <b>1.</b> Propoziție → Subiect Predicat &nbsp; <b>2.</b> Subiect → pisica &nbsp; <b>3.</b> Subiect → câinele &nbsp; <b>4.</b> Predicat → vede Complement &nbsp; <b>5.</b> Complement → șoarecele &nbsp; <b>6.</b> Complement → mingea }</div></div>
+  <div class="card" id="d3"></div>
+  <p style="font-size:15px;color:var(--muted)">Din arbore se vede ce rol are fiecare cuvânt: „pisica” este subiectul, „șoarecele” este complementul. Programele care analizează textul construiesc exact astfel de arbori.</p>
+</section>
+
+<!-- 1 -->
+<section id="what">
+  <div class="sec-head"><span class="num">03</span><h2>Ce este o gramatică</h2><span class="task-tag">toate sarcinile</span></div>
+  <p>O gramatică se scrie ca un cvadruplu <span class="mono">G = (VN, VT, P, S)</span>. Fiecare literă a cvadruplului este o parte distinctă.</p>
+  <div class="grid4">
+    <div class="mini"><b style="color:var(--nt)">VN</b><small>Neterminalele sunt „semifabricate” care vor fi înlocuite. Le scriem cu majuscule: <span class="sym nt">S</span><span class="sym nt">A</span></small></div>
+    <div class="mini"><b style="color:var(--t)">VT</b><small>Terminalele sunt literele cuvântului final. Ele nu se mai înlocuiesc: <span class="sym t">a</span><span class="sym t">b</span><span class="sym t">c</span></small></div>
+    <div class="mini"><b>P</b><small>Reguli de forma <span class="mono">X → …</span>: „neterminalul X poate fi înlocuit cu ce este în dreapta”.</small></div>
+    <div class="mini"><b>S</b><small>Simbolul de start. Orice derivare începe cu el.</small></div>
+  </div>
+  <p>Pe tot parcursul cursului lucrăm cu o singură gramatică din exemplul de rezolvare:</p>
+  <div class="card">
+    <div class="mono" style="font-size:16px;line-height:2">G = (VN, VT, P, S); VN = { S, A }, VT = { a, b, c }<br>
+    P = { <b>1.</b> S → aSc &nbsp; <b>2.</b> S → A &nbsp; <b>3.</b> A → bA &nbsp; <b>4.</b> A → b }</div>
+  </div>
+  <h3>Tipuri de gramatici: ierarhia Chomsky</h3>
+  <p>Gramaticile se împart în patru tipuri după forma regulilor. Cu cât regulile sunt mai stricte, cu atât mai puține limbaje pot fi descrise. Apăsați pe un limbaj și vedeți de ce tip minim are nevoie.</p>
+  <div class="card">
+    <div class="two" style="align-items:center">
+      <div class="hier" id="hier">
+        <svg viewBox="0 0 400 260" width="100%" role="img" aria-label="Ierarhia Chomsky">
+          <rect data-l="0" x="6" y="6" width="388" height="248" rx="18"/>
+          <rect data-l="1" x="26" y="40" width="348" height="200" rx="16"/>
+          <rect data-l="2" x="46" y="74" width="308" height="152" rx="14"/>
+          <rect data-l="3" x="66" y="108" width="268" height="104" rx="12"/>
+          <text x="20" y="28">Tipul 0 · fără restricții</text>
+          <text x="40" y="62">Tipul 1 · dependente de context</text>
+          <text x="60" y="96">Tipul 2 · independente de context</text>
+          <text x="80" y="130">Tipul 3 · regulate</text>
+          <text id="hlab" class="hlab" x="200" y="180"></text>
+        </svg>
+      </div>
+      <div>
+        <div class="opts" id="hbtns"></div>
+        <p class="status" id="hexpl" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <table class="tbl" style="margin-top:12px">
+      <tr><th>Tip</th><th>Forma regulilor</th><th>Exemplu</th></tr>
+      <tr><td>3, regulate</td><td class="mono">A → aB, A → a</td><td>a*b*, identificatori, numere</td></tr>
+      <tr><td>2, independente de context</td><td>în stânga exact un neterminal: <span class="mono">A → γ</span></td><td>G-ul nostru, paranteze, limbaje de programare</td></tr>
+      <tr><td>1, dependente de context</td><td>înlocuire ținând cont de vecini: <span class="mono">αAβ → αγβ</span></td><td>aⁿbⁿcⁿ</td></tr>
+      <tr><td>0, fără restricții</td><td>orice reguli</td><td>tot ce poate calcula o mașină Turing</td></tr>
+    </table>
+    <p style="font-size:15px;color:var(--muted);margin:6px 0 0">Toate gramaticile din laborator sunt independente de context: în stânga fiecărei reguli este un singur neterminal. Limbajul gramaticii 2 (a²ⁿbc) este chiar regulat: nu trebuie numărate perechi, ajunge verificarea parității.</p>
+  </div>
+
+  <p><b>Derivarea</b> este un șir de înlocuiri de la S până la un cuvânt în care nu a rămas niciun neterminal. Notația <span class="mono">aSc ⇒ aaScc</span> se citește așa: „în șirul aSc l-am înlocuit pe S după regula 1”.</p>
+</section>
+
+<!-- 2 -->
+<section id="derive">
+  <div class="sec-head"><span class="num">04</span><h2>Derivarea pas cu pas și arborele de derivare</h2><span class="task-tag">sarcina 2</span></div>
+  <p>Derivați cuvântul singuri: apăsați pe o regulă și ea va înlocui neterminalul încadrat. În derivarea <b>la stânga</b> se înlocuiește mereu neterminalul cel mai din stânga. Mai jos crește simultan arborele: fiecare regulă îi dă nodului descendenți — simbolurile părții drepte, de la stânga la dreapta.</p>
+  <div class="card" id="d1"></div>
+  <div class="note">Cum citim arborele: frunzele (nodurile fără descendenți), de la stânga la dreapta, dau cuvântul final. Pentru aabbbcc acestea sunt a, a, b, b, b, c, c.</div>
+</section>
+
+<!-- 3 -->
+<section id="language">
+  <div class="sec-head"><span class="num">05</span><h2>Cum găsim limbajul L(G)</h2><span class="task-tag">sarcinile 1, 5, 6</span></div>
+  <p>Procedeul principal: pentru fiecare neterminal împărțim regulile în două tipuri.</p>
+  <table class="tbl">
+    <tr><th>Regula</th><th>Tip</th><th>Ce face</th><th>De câte ori</th></tr>
+    <tr><td class="mono">1. S → aSc</td><td><span class="pill rep">se repetă</span></td><td>în dreapta apare din nou S → se poate aplica de oricâte ori; de fiecare dată +1 a în stânga și +1 c în dreapta</td><td class="mono">n</td></tr>
+    <tr><td class="mono">2. S → A</td><td><span class="pill exit">ieșire</span></td><td>S dispare; a și c noi nu vor mai apărea</td><td class="mono">1</td></tr>
+    <tr><td class="mono">3. A → bA</td><td><span class="pill rep">se repetă</span></td><td>+1 b, A rămâne</td><td class="mono">k − 1</td></tr>
+    <tr><td class="mono">4. A → b</td><td><span class="pill exit">ieșire</span></td><td>ultimul b, derivarea s-a încheiat</td><td class="mono">1</td></tr>
+  </table>
+  <p>Ordinea este impusă: cât timp în șir există S, lucrează regulile 1–2; A apare doar după regula 2. Așa obținem <span class="mono">S ⇒ … ⇒ aⁿScⁿ ⇒ aⁿAcⁿ ⇒ … ⇒ aⁿbᵏcⁿ</span>.</p>
+  <p>Mișcați glisoarele și urmăriți ce cuvânt și ce derivare se obțin:</p>
+  <div class="card">
+    <div class="slider"><label for="ln">n (perechi a…c)</label><input type="range" id="ln" min="0" max="5" value="2"><output id="lno">2</output></div>
+    <div class="slider"><label for="lk">k (litere b)</label><input type="range" id="lk" min="1" max="6" value="3"><output id="lko">3</output></div>
+    <div class="chain" id="lword"></div>
+    <div class="stats">
+      <div class="stat">lungimea 2n + k =<b id="llen"></b></div>
+      <div class="stat">pași de derivare n + k + 1 =<b id="lsteps"></b></div>
+    </div>
+    <div class="hist" id="lhist"></div>
+  </div>
+  <p><b>Răspuns:</b> <span class="mono">L(G) = { aⁿbᵏcⁿ, n ≥ 0, k ≥ 1 }</span>. n ≥ 0, pentru că regula 1 poate să nu fie aplicată. k ≥ 1, pentru că regula A → ε nu există, iar regula 4 este obligatorie.</p>
+  <h3>Toate cuvintele de lungime cel mult L</h3>
+  <div class="card">
+    <div class="slider"><label for="lmax">L</label><input type="range" id="lmax" min="1" max="8" value="4"><output id="lmaxo">4</output></div>
+    <div class="words" id="lwords"></div>
+    <p class="status" id="lwcount" style="margin-top:8px"></p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="check">
+  <div class="sec-head"><span class="num">06</span><h2>Aparține cuvântul limbajului?</h2><span class="task-tag">sarcina 3</span></div>
+  <p>Pentru a demonstra că un cuvânt <b>nu aparține</b> limbajului, nu ajunge să spunem „nu a ieșit”. Trebuie să construim derivarea și să arătăm că la un anumit pas nicio regulă nu se potrivește. Indiciu — prima literă: <span class="mono">a</span> dă doar regula 1, <span class="mono">b</span> — doar drumul prin regula 2.</p>
+  <div class="card">
+    <div class="inrow">
+      <label for="win" class="sr">Cuvânt:</label>
+      <input type="text" id="win" value="abbcc" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="wgo">Verifică</button>
+      <span style="color:var(--muted);font-size:14px">exemple:</span>
+      <button class="btn" data-w="aabbbcc">aabbbcc</button>
+      <button class="btn" data-w="abbcc">abbcc</button>
+      <button class="btn" data-w="aacc">aacc</button>
+      <button class="btn" data-w="b">b</button>
+      <button class="btn" data-w="aabcc">aabcc</button>
+    </div>
+    <ol class="trace" id="wtrace"></ol>
+    <div id="wverdict"></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="modify">
+  <div class="sec-head"><span class="num">07</span><h2>Modificarea condiției</h2><span class="task-tag">sarcina 4</span></div>
+  <p>Trebuie să obținem <span class="mono">aⁿbᵏc²ⁿ</span>. Comparăm cu limbajul vechi: partea cu b nu s-a schimbat, s-a schimbat doar numărul de c pentru un a. Literele a și c le pune doar regula 1, deci modificăm doar regula 1. Arcele de mai jos arată ce c „aparțin” fiecărui a.</p>
+  <div class="card">
+    <div class="ctrl" style="margin:0 0 8px">
+      <button class="btn on" id="m1">înainte: S → aSc</button>
+      <button class="btn" id="m2">acum: S → aScc</button>
+    </div>
+    <div class="slider"><label for="mn">n</label><input type="range" id="mn" min="1" max="4" value="2"><output id="mno">2</output></div>
+    <div class="slider"><label for="mk">k</label><input type="range" id="mk" min="1" max="4" value="1"><output id="mko">1</output></div>
+    <div class="arcs" id="marcs"></div>
+    <div class="hist" id="mhist"></div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="leftright">
+  <div class="sec-head"><span class="num">08</span><h2>Derivarea la stânga și la dreapta</h2><span class="task-tag">sarcina 7</span></div>
+  <p>În G fiecare șir are exact un neterminal, deci nu avem ce alege, iar derivarea la stânga coincide cu cea la dreapta. Luăm gramatica 1 din laborator, unde regula 1 dă imediat două neterminale:</p>
+  <div class="card"><div class="mono" style="line-height:2">G₁: VN = { S, A, B }, VT = { 0, 1, 2 }<br>P = { <b>1.</b> S → AB &nbsp; <b>2.</b> A → 01 &nbsp; <b>3.</b> A → 0A1 &nbsp; <b>4.</b> B → 2 &nbsp; <b>5.</b> B → 2B }</div></div>
+  <p>Schimbați modul și porniți derivarea lui 00112. Etichetele negre din arbore arată la ce pas a fost extins nodul. Arborele este același, se schimbă doar ordinea pașilor.</p>
+  <div class="card" id="d2"></div>
+</section>
+
+<!-- 7 -->
+<section id="build">
+  <div class="sec-head"><span class="num">09</span><h2>Cum construim o gramatică după limbaj</h2><span class="task-tag">sarcinile 8, 9</span></div>
+  <p>Căutăm literele care trebuie să fie în număr egal și le unim în perechi. O pereche de la marginile cuvântului se construiește cu o regulă de forma <span class="mono">X → aXd</span>. Perechile se încadrează una în alta ca o matrioșkă: fiecare nivel are neterminalul său.</p>
+  <div class="card">
+    <div class="ctrl" style="margin:0 0 8px">
+      <button class="btn on" id="bA">aⁿbᵐcᵐdⁿ</button>
+      <button class="btn" id="bB">aⁿbᵐcⁿ⁺ᵐ</button>
+    </div>
+    <div class="slider"><label for="bn">n</label><input type="range" id="bn" min="0" max="4" value="2"><output id="bno">2</output></div>
+    <div class="slider"><label for="bm">m</label><input type="range" id="bm" min="1" max="4" value="2"><output id="bmo">2</output></div>
+    <div class="legend"><span><i class="sw" style="background:var(--nt)"></i>perechi exterioare — neterminalul S</span><span><i class="sw" style="background:var(--inner)"></i>perechi interioare — neterminalul B</span></div>
+    <div class="arcs" id="barcs"></div>
+    <div id="bexpl" class="status"></div>
+    <div id="brules" style="margin:6px 0"></div>
+    <div class="hist" id="bhist"></div>
+  </div>
+  <div class="note" id="bnote"></div>
+</section>
+
+<!-- 8 -->
+<section id="quiz">
+  <div class="sec-head"><span class="num">10</span><h2>Verifică-te</h2></div>
+  <p>Toate întrebările sunt despre gramatica G și limbajele din curs.</p>
+  <div class="card quiz" id="qz"></div>
+</section>
+
+<!-- 9 -->
+<section id="algo">
+  <div class="sec-head"><span class="num">11</span><h2>Rezumat: cum rezolvăm astfel de probleme</h2></div>
+  <ol class="steps-algo">
+    <li><div><b>Marcați regulile.</b> Pentru fiecare neterminal găsiți regulile „se repetă” (neterminalul rămâne în dreapta) și „ieșire” (nu rămâne).</div></li>
+    <li><div><b>Înțelegeți ce adaugă fiecare regulă.</b> Regulile care se repetă dau exponenții n, k, m; cele de ieșire se aplică o singură dată.</div></li>
+    <li><div><b>Scrieți limbajul și verificați-l</b> pe 2–3 cele mai scurte cuvinte. Verificați separat limitele: poate exponentul să fie 0?</div></li>
+    <li><div><b>Pentru a demonstra „nu aparține”</b>, construiți derivarea după prima literă și arătați pasul la care nu se potrivește nicio regulă.</div></li>
+    <li><div><b>Pentru a construi o gramatică</b>, găsiți perechile de litere egale, încadrați-le ca o matrioșkă și introduceți un neterminal pentru fiecare nivel. Ieșirea: <span class="mono">bc</span>, dacă există cel puțin o pereche, și <span class="mono">ε</span>, dacă perechile pot lipsi.</div></li>
+  </ol>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = (id)=>document.getElementById(id);
+const el = (tag, cls, txt)=>{const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;};
+const SVGNS="http://www.w3.org/2000/svg";
+const sv=(tag,attrs)=>{const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e;};
+const isUpper = s => /^[A-Z]$/.test(s);
+function symChip(s, extra){
+  const cls = s==="ε" ? "eps" : (isUpper(s) ? "nt" : "t");
+  return el("span","sym "+cls+(extra?" "+extra:""), s);
+}
+
+/* Generic leftmost derivation on strings (single-letter symbols) */
+function deriveForms(rules, seq){
+  let f="S"; const out=[{f, n:null}];
+  for(const n of seq){
+    const r = rules.find(x=>x.n===n);
+    const i = [...f].findIndex(isUpper);
+    f = f.slice(0,i) + r.r.join("") + f.slice(i+1);
+    out.push({f, n});
+  }
+  return out;
+}
+function histInto(box, forms){
+  box.innerHTML="";
+  forms.forEach((x,idx)=>{
+    if(idx>0){ box.appendChild(el("span","ar"," ⇒")); box.appendChild(el("span","rn","("+x.n+")")); box.appendChild(document.createTextNode(" ")); }
+    box.appendChild(document.createTextNode(x.f===""?"ε":x.f));
+  });
+}
+
+/* ---------- Interactive deriver with tree ---------- */
+function createDeriver(root, cfg){
+  const g = cfg.grammar;
+  const sep = cfg.sep || "";
+  let mode = cfg.mode || "left";
+  let st, hist=[], timer=null, fresh=new Set();
+
+  const top = el("div","ctrl"); top.style.marginTop="0";
+  if(cfg.modes){
+    const bl = el("button","btn","La stânga"), br = el("button","btn","La dreapta");
+    const sync=()=>{bl.classList.toggle("on",mode==="left"); br.classList.toggle("on",mode==="right");};
+    bl.onclick=()=>{mode="left";sync();reset();};
+    br.onclick=()=>{mode="right";sync();reset();};
+    top.append(bl,br); sync();
+  }
+  const status = el("p","status");
+  const chain = el("div","chain"); chain.setAttribute("aria-live","polite");
+  const rulesBox = el("div","rules");
+  const ctrl = el("div","ctrl");
+  const histBox = el("div","hist");
+  const treeBox = el("div","treebox");
+  if(cfg.modes) root.appendChild(top);
+  root.append(status, chain, rulesBox, ctrl, histBox, treeBox);
+
+  const btnUndo = el("button","btn","← Un pas înapoi");
+  const btnReset = el("button","btn","De la început");
+  btnUndo.onclick=()=>{stop(); undo();};
+  btnReset.onclick=()=>{stop(); reset();};
+  ctrl.append(btnUndo, btnReset);
+  (cfg.presets||[]).forEach(p=>{
+    const b = el("button","btn primary","▶ "+p.label);
+    b.onclick=()=>play(p.rules());
+    ctrl.appendChild(b);
+  });
+
+  const ruleBtns = g.rules.map(r=>{
+    const b = el("button","rbtn");
+    b.appendChild(el("span","rn",r.n+"."));
+    b.appendChild(document.createTextNode(r.l+" → "+(r.r.length?r.r.join(sep):"ε")));
+    b.onclick=()=>{stop(); apply(r);};
+    rulesBox.appendChild(b);
+    return {b,r};
+  });
+
+  function isNT(s){ return g.nts.includes(s); }
+  function reset(){
+    st={nodes:{0:{s:(g.start||"S"),ch:[],step:null}}, form:[0], next:1, steps:[]};
+    hist=[]; fresh=new Set([0]); render();
+  }
+  function targetIdx(){
+    const idx=[]; st.form.forEach((id,i)=>{ if(isNT(st.nodes[id].s)) idx.push(i); });
+    if(!idx.length) return -1;
+    return mode==="left" ? idx[0] : idx[idx.length-1];
+  }
+  function formStr(){ return st.form.map(id=>st.nodes[id].s).join(sep); }
+  function apply(r, quiet){
+    const ti = targetIdx(); if(ti<0) return false;
+    const nid = st.form[ti], node = st.nodes[nid];
+    if(node.s!==r.l) return false;
+    hist.push(JSON.stringify(st));
+    fresh = new Set();
+    const syms = r.r.length ? r.r : ["ε"];
+    const kids = syms.map(s=>{ const id=st.next++; st.nodes[id]={s,ch:[],step:null}; fresh.add(id); return id; });
+    node.ch = kids; node.step = st.steps.length+1;
+    st.form.splice(ti,1,...(r.r.length?kids:[]));
+    st.steps.push({n:r.n, f:formStr()});
+    if(!quiet) render();
+    return true;
+  }
+  function undo(){ if(!hist.length) return; st=JSON.parse(hist.pop()); fresh=new Set(); render(); }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+  function play(seq){
+    stop(); reset(); let i=0;
+    const run=()=>{ if(i>=seq.length){ stop(); return; } apply(g.rules.find(x=>x.n===seq[i++])); };
+    if(reduce){ seq.forEach(n=>apply(g.rules.find(x=>x.n===n),true)); fresh=new Set(); render(); return; }
+    timer=setInterval(run, 850);
+  }
+  function instant(seq){ reset(); seq.forEach(n=>apply(g.rules.find(x=>x.n===n),true)); fresh=new Set(); render(); }
+
+  function render(){
+    const ti = targetIdx();
+    chain.innerHTML="";
+    if(!st.form.length) chain.appendChild(symChip("ε"));
+    st.form.forEach((id,i)=>{ const sy=st.nodes[id].s; const c=el("span","sym "+(isNT(sy)?"nt":"t")+(i===ti?" target":"")+(fresh.has(id)?" fresh":""), sy); chain.appendChild(c); });
+    if(ti<0){
+      status.innerHTML = "Derivare încheiată: nu au rămas neterminale. Cuvântul obținut: <b class='mono'>"+(formStr()||"ε")+"</b> în "+st.steps.length+" pași.";
+    } else {
+      const s = st.nodes[st.form[ti]].s;
+      const ok = g.rules.filter(r=>r.l===s).map(r=>r.n).join(", ");
+      status.innerHTML = "Înlocuim <b class='mono'>"+s+"</b>, neterminalul cel mai din "+(mode==="left"?"stânga":"dreapta")+". Se potrivesc regulile: "+ok+".";
+    }
+    ruleBtns.forEach(({b,r})=>{ b.disabled = ti<0 || st.nodes[st.form[ti]].s!==r.l; });
+    btnUndo.disabled = !hist.length;
+    histBox.innerHTML="";
+    histBox.appendChild(document.createTextNode(g.start||"S"));
+    st.steps.forEach(x=>{ histBox.appendChild(el("span","ar"," ⇒")); histBox.appendChild(el("span","rn","("+x.n+")")); histBox.appendChild(document.createTextNode(" "+(x.f||"ε"))); });
+    drawTree(ti>=0 ? st.form[ti] : -1);
+  }
+
+  function drawTree(tgtId){
+    let leaf=0, maxD=0; const pos={};
+    (function rec(id,d){
+      const n=st.nodes[id]; maxD=Math.max(maxD,d);
+      if(!n.ch.length){ pos[id]={x:leaf++, d}; }
+      else { n.ch.forEach(c=>rec(c,d+1)); pos[id]={x:(pos[n.ch[0]].x+pos[n.ch[n.ch.length-1]].x)/2, d}; }
+    })(0,0);
+    const gap=cfg.gap||46, vg=58, pad=cfg.wide?60:28;
+    const W = pad*2 + Math.max(0,leaf-1)*gap, H = pad*2 + maxD*vg;
+    const svg = sv("svg",{viewBox:"0 0 "+W+" "+H, width:W, height:H, role:"img","aria-label":"Arbore de derivare"});
+    const X=id=>pad+pos[id].x*gap, Y=id=>pad+pos[id].d*vg;
+    Object.keys(st.nodes).forEach(k=>{ const id=+k, n=st.nodes[id]; if(!(id in pos)) return;
+      n.ch.forEach(c=>svg.appendChild(sv("line",{class:"tedge",x1:X(id),y1:Y(id)+15,x2:X(c),y2:Y(c)-15})));
+    });
+    Object.keys(st.nodes).forEach(k=>{ const id=+k, n=st.nodes[id]; if(!(id in pos)) return;
+      const type = n.s==="ε"?"eps":(isNT(n.s)?"nt":"t");
+      const gr = sv("g",{class:"tnode "+type+(cfg.wide?" wide":"")+(fresh.has(id)?" new":"")+(id===tgtId?" tgt":"")});
+      if(cfg.wide){ const w=Math.max(34,n.s.length*9+16); gr.appendChild(sv("rect",{x:X(id)-w/2,y:Y(id)-15,width:w,height:30,rx:8})); }
+      else gr.appendChild(sv("circle",{cx:X(id),cy:Y(id),r:15}));
+      const t=sv("text",{x:X(id),y:Y(id)}); t.textContent=n.s; gr.appendChild(t);
+      if(cfg.showOrder && n.step){
+        gr.appendChild(sv("circle",{class:"order-bg",cx:X(id)+15,cy:Y(id)-13,r:8.5}));
+        const o=sv("text",{class:"order",x:X(id)+15,y:Y(id)-13,"text-anchor":"middle","dominant-baseline":"central"}); o.textContent=n.step; gr.appendChild(o);
+      }
+      svg.appendChild(gr);
+    });
+    treeBox.innerHTML=""; treeBox.appendChild(svg);
+  }
+  return {reset, instant, play};
+}
+
+const G = {nts:["S","A"], rules:[
+  {n:1,l:"S",r:["a","S","c"]},{n:2,l:"S",r:["A"]},{n:3,l:"A",r:["b","A"]},{n:4,l:"A",r:["b"]}]};
+const G1 = {nts:["S","A","B"], rules:[
+  {n:1,l:"S",r:["A","B"]},{n:2,l:"A",r:["0","1"]},{n:3,l:"A",r:["0","A","1"]},{n:4,l:"B",r:["2"]},{n:5,l:"B",r:["2","B"]}]};
+
+const d1 = createDeriver($("d1"), {grammar:G, presets:[{label:"Arată derivarea aabbbcc", rules:()=>[1,1,2,3,3,4]}]});
+d1.instant([1,1,2,3,3,4]);
+
+let d2mode = "left";
+const d2 = createDeriver($("d2"), {grammar:G1, modes:true, showOrder:true,
+  presets:[{label:"Arată derivarea 00112", rules:()=>{
+    const left = document.querySelector("#d2 .btn.on").textContent.startsWith("La stânga");
+    return left ? [1,3,2,4] : [1,4,3,2];
+  }}]});
+d2.instant([1,3,2,4]);
+
+/* ---------- Section 3: language explorer ---------- */
+function word(n,k){ return "a".repeat(n)+"b".repeat(k)+"c".repeat(n); }
+function seqFor(n,k){ return [...Array(n).fill(1),2,...Array(k-1).fill(3),4]; }
+function upd3(){
+  const n=+$("ln").value, k=+$("lk").value;
+  $("lno").textContent=n; $("lko").textContent=k;
+  const w=word(n,k), box=$("lword"); box.innerHTML="";
+  [...w].forEach(ch=>box.appendChild(symChip(ch,"fresh")));
+  $("llen").textContent=2*n+k; $("lsteps").textContent=n+k+1;
+  histInto($("lhist"), deriveForms(G.rules, seqFor(n,k)));
+}
+["ln","lk"].forEach(id=>$(id).addEventListener("input",upd3)); upd3();
+
+function upd3b(){
+  const L=+$("lmax").value; $("lmaxo").textContent=L;
+  const list=[];
+  for(let n=0;2*n+1<=L;n++) for(let k=1;2*n+k<=L;k++) list.push(word(n,k));
+  list.sort((a,b)=>a.length-b.length||a.localeCompare(b));
+  const box=$("lwords"); box.innerHTML="";
+  list.forEach(w=>box.appendChild(el("span","word",w)));
+  $("lwcount").textContent="Total cuvinte: "+list.length+". Enumerare: n = 0, 1, 2…, pentru fiecare n toți k ≥ 1, cât timp 2n + k ≤ "+L+".";
+}
+$("lmax").addEventListener("input",upd3b); upd3b();
+
+/* ---------- Section 4: membership trace ---------- */
+function analyze(w){
+  const steps=[];
+  const fail=t=>{steps.push({t,bad:true}); return {ok:false,steps};};
+  if(!/^[abc]*$/.test(w)) return fail("Cuvântul conține simboluri care nu sunt din VT = { a, b, c }. Un astfel de cuvânt nu se obține prin nicio derivare.");
+  if(w.length===0) return fail("Cuvântul vid. Orice derivare trece prin A, iar din A se obține mereu cel puțin un b.");
+  let i=0, j=w.length-1;
+  while(i<=j && w[i]==="a"){
+    if(w[j]!=="c") return fail("Simbolul "+(i+1)+" este a. Litera a o pune doar regula 1 (S → aSc), iar odată cu ea la celălalt capăt apare c. Dar pe poziția "+(j+1)+" se află „"+w[j]+"”. Impas.");
+    steps.push({t:"Simbolul "+(i+1)+" este a, simbolul "+(j+1)+" este c. Aceasta e o pereche a…c → regula 1.", f:w.slice(0,i+1)+"S"+w.slice(j), r:1});
+    i++; j--;
+  }
+  if(i>j) return fail("Din S a rămas de obținut șirul vid. Regula 1 dă a, regula 2 dă A, iar din A iese mereu cel puțin un b. Impas: în cuvânt nu există b.");
+  const mid=w.slice(i,j+1);
+  if(w[i]!=="b") return fail("Mijlocul „"+mid+"” începe cu „"+w[i]+"”. Aici a nu mai are pereche, iar drumul S → A dă doar litere b. Impas.");
+  steps.push({t:"Mijlocul „"+mid+"” începe cu b → regula 2, mai departe lucrăm cu A.", f:w.slice(0,i)+"A"+w.slice(j+1), r:2});
+  for(let p=i;p<=j;p++){
+    if(w[p]!=="b") return fail("Din A se obțin doar litere b, dar pe poziția "+(p+1)+" se află „"+w[p]+"”. Impas.");
+    if(p<j) steps.push({t:"Simbolul "+(p+1)+" este b, iar mijlocul nu s-a terminat → regula 3.", f:w.slice(0,p+1)+"A"+w.slice(j+1), r:3});
+    else steps.push({t:"Simbolul "+(p+1)+" este ultimul b → regula 4, derivarea s-a încheiat.", f:w, r:4});
+  }
+  return {ok:true,steps};
+}
+function runCheck(){
+  const w=$("win").value.trim(); const res=analyze(w);
+  const ol=$("wtrace"); ol.innerHTML="";
+  res.steps.forEach((s,idx)=>{
+    const li=el("li",s.bad?"bad":"");
+    if(!reduce) li.style.animationDelay=(idx*0.18)+"s";
+    li.appendChild(el("span","i",s.bad?"✕":(idx+1)+""));
+    const d=el("div",null,s.t);
+    if(s.f) d.appendChild(el("span","f","⇒("+s.r+") "+s.f));
+    li.appendChild(d); ol.appendChild(li);
+  });
+  const na=(w.match(/a/g)||[]).length, nb=(w.match(/b/g)||[]).length, nc=(w.match(/c/g)||[]).length;
+  const v=$("wverdict"); v.className="verdict "+(res.ok?"ok":"bad");
+  v.textContent = (res.ok? "«"+w+"» ∈ L(G)" : "«"+(w||"ε")+"» ∉ L(G)") + " · după formulă: a — "+na+", b — "+nb+", c — "+nc+(res.ok?" (a = c, b ≥ 1)":"");
+}
+$("wgo").onclick=runCheck;
+$("win").addEventListener("keydown",e=>{ if(e.key==="Enter") runCheck(); });
+document.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{ $("win").value=b.dataset.w; runCheck(); });
+runCheck();
+
+/* ---------- Arc drawing ---------- */
+function drawArcs(box, letters, pairs, split){
+  const step=34, pad=22, base=0;
+  const W=pad*2+(letters.length-1)*step+10;
+  const maxSpan = pairs.reduce((m,p)=>Math.max(m,p.j-p.i),1);
+  const top = 14 + maxSpan*9;
+  const H = top+40;
+  const svg=sv("svg",{viewBox:"0 0 "+Math.max(W,60)+" "+H,width:Math.max(W,60),height:H,role:"img","aria-label":"Perechi de litere în cuvânt"});
+  const X=i=>pad+5+i*step, yL=top+26;
+  pairs.forEach((p,idx)=>{
+    const x1=X(p.i), x2=X(p.j), h=10+(p.j-p.i)*9;
+    const path=sv("path",{class:"arc "+p.cls,d:"M"+x1+" "+(top+6)+" Q"+((x1+x2)/2)+" "+(top+6-h*1.9)+" "+x2+" "+(top+6)});
+    if(!reduce){ path.style.strokeDasharray="600"; path.style.strokeDashoffset="600"; path.style.transition="stroke-dashoffset .7s ease "+(idx*0.08)+"s"; requestAnimationFrame(()=>requestAnimationFrame(()=>{path.style.strokeDashoffset="0";})); }
+    svg.appendChild(path);
+  });
+  if(split!=null){ const x=X(split)-step/2; svg.appendChild(sv("line",{x1:x,y1:top-4,x2:x,y2:yL+10,stroke:"var(--t)","stroke-width":2,"stroke-dasharray":"4 4"})); }
+  letters.forEach((L,i)=>{ const t=sv("text",{class:"lt "+L.cls,x:X(i),y:yL}); t.textContent=L.ch; svg.appendChild(t); });
+  box.innerHTML=""; box.appendChild(svg); return svg;
+}
+
+/* ---------- Section 5: modify ---------- */
+let mMul=1;
+const Gm2 = [{n:1,l:"S",r:["a","S","c","c"]},{n:2,l:"S",r:["A"]},{n:3,l:"A",r:["b","A"]},{n:4,l:"A",r:["b"]}];
+function upd5(){
+  const n=+$("mn").value, k=+$("mk").value; $("mno").textContent=n; $("mko").textContent=k;
+  const letters=[]; for(let i=0;i<n;i++) letters.push({ch:"a",cls:"outer"});
+  for(let i=0;i<k;i++) letters.push({ch:"b",cls:"mid"});
+  const nc=n*mMul; for(let i=0;i<nc;i++) letters.push({ch:"c",cls:"outer"});
+  const end=letters.length-1, pairs=[];
+  for(let i=0;i<n;i++) for(let t=0;t<mMul;t++) pairs.push({i, j:end-i*mMul-t, cls:"outer"});
+  drawArcs($("marcs"), letters, pairs);
+  histInto($("mhist"), deriveForms(mMul===1?G.rules:Gm2, seqFor(n,k)));
+  $("m1").classList.toggle("on",mMul===1); $("m2").classList.toggle("on",mMul===2);
+}
+$("m1").onclick=()=>{mMul=1;upd5();}; $("m2").onclick=()=>{mMul=2;upd5();};
+["mn","mk"].forEach(id=>$(id).addEventListener("input",upd5)); upd5();
+
+/* ---------- Section 7: build ---------- */
+let bLang="A";
+const GA=[{n:1,l:"S",r:["a","S","d"]},{n:2,l:"S",r:["B"]},{n:3,l:"B",r:["b","B","c"]},{n:4,l:"B",r:["b","c"]}];
+const GB=[{n:1,l:"S",r:["a","S","c"]},{n:2,l:"S",r:["B"]},{n:3,l:"B",r:["b","B","c"]},{n:4,l:"B",r:[]}];
+function upd7(){
+  const mIn=$("bm");
+  mIn.min = bLang==="A" ? 1 : 0; if(+mIn.value<+mIn.min) mIn.value=mIn.min;
+  const n=+$("bn").value, m=+mIn.value; $("bno").textContent=n; $("bmo").textContent=m;
+  const letters=[], pairs=[];
+  for(let i=0;i<n;i++) letters.push({ch:"a",cls:"outer"});
+  for(let i=0;i<m;i++) letters.push({ch:"b",cls:"inner"});
+  for(let i=0;i<m;i++) letters.push({ch:"c",cls:"inner"});
+  for(let i=0;i<n;i++) letters.push({ch:bLang==="A"?"d":"c",cls:"outer"});
+  const L=letters.length;
+  for(let i=0;i<n;i++) pairs.push({i, j:L-1-i, cls:"outer"});
+  for(let t=0;t<m;t++) pairs.push({i:n+t, j:n+2*m-1-t, cls:"inner"});
+  const svg=drawArcs($("barcs"), letters, pairs, bLang==="B" && n>0 ? n+2*m : null);
+  const G7 = bLang==="A"?GA:GB;
+  const rb=$("brules"); rb.innerHTML="";
+  G7.forEach(r=>{
+    const cls = (r.n===1)?"outer":(r.n===3?"inner":"");
+    const s=el("span","grule "+cls, r.n+". "+r.l+" → "+(r.r.length?r.r.join(""):"ε"));
+    if(cls){ s.onmouseenter=()=>svg.classList.add("dim","hl-"+cls); s.onmouseleave=()=>svg.classList.remove("dim","hl-outer","hl-inner"); s.tabIndex=0; s.onfocus=s.onmouseenter; s.onblur=s.onmouseleave; }
+    rb.appendChild(s);
+  });
+  const seq=[...Array(n).fill(1),2];
+  if(bLang==="A"){ for(let t=0;t<m-1;t++) seq.push(3); seq.push(4); }
+  else { for(let t=0;t<m;t++) seq.push(3); seq.push(4); }
+  histInto($("bhist"), deriveForms(G7, seq));
+  const w = letters.map(x=>x.ch).join("");
+  if(bLang==="A"){
+    $("bexpl").innerHTML="Cuvânt <b class='mono'>"+(w||"ε")+"</b>. Treceți cu mouse-ul peste regula 1 sau 3: se vor evidenția perechile pe care le construiește.";
+    $("bnote").innerHTML="De ce ieșirea este <span class='mono'>B → bc</span>, și nu <span class='mono'>B → ε</span>: după condiție m ≥ 1, deci cel puțin o pereche b…c este necesară mereu. Iar n ≥ 0, deci din S putem trece direct în B.";
+  } else {
+    $("bexpl").innerHTML="Cuvânt <b class='mono'>"+(w||"ε")+"</b>. Linia punctată împarte cⁿ⁺ᵐ în cᵐ (perechi pentru b) și cⁿ (perechi pentru a): aⁿbᵐcⁿ⁺ᵐ = aⁿ (bᵐcᵐ) cⁿ.";
+    $("bnote").innerHTML="Trucul: toți c sunt identici, deci cⁿ⁺ᵐ poate fi împărțit în gând în două grupuri. Literele b stau mai aproape de mijloc decât a, deci și c-urile lor sunt mai aproape de mijloc. Obținem aceeași matrioșkă. m ≥ 0, deci ieșirea este <span class='mono'>B → ε</span>.";
+  }
+  $("bA").classList.toggle("on",bLang==="A"); $("bB").classList.toggle("on",bLang==="B");
+}
+$("bA").onclick=()=>{bLang="A";upd7();}; $("bB").onclick=()=>{bLang="B";upd7();};
+["bn","bm"].forEach(id=>$(id).addEventListener("input",upd7)); upd7();
+
+/* ---------- Quiz ---------- */
+const Q=[
+  {q:"Ce este VN?", o:["Mulțimea neterminalelor","Mulțimea regulilor","Literele cuvântului final"], a:0, e:"VN sunt neterminalele: simbolurile care vor fi înlocuite (S, A)."},
+  {q:"De câte ori se aplică regula 4 (A → b) în derivarea oricărui cuvânt din G?", o:["Exact o dată","de k ori","De oricâte ori"], a:0, e:"Este singura regulă care încheie derivarea, deci este mereu ultima și unică."},
+  {q:"Ce cuvânt aparține lui L(G) = { aⁿbᵏcⁿ, n ≥ 0, k ≥ 1 }?", o:["abcc","aabcc","aacc","ac"], a:1, e:"aabcc: doi a, doi c, un b. În aacc și ac nu există b, în abcc a ≠ c."},
+  {q:"În câți pași se derivă aaabbccc?", o:["5","6","8"], a:1, e:"n = 3, k = 2: n + k + 1 = 6."},
+  {q:"De ce în G derivarea la stânga și cea la dreapta coincid?", o:["Pentru că fiecare șir are un singur neterminal","Pentru că sunt doar 4 reguli","Așa e întotdeauna"], a:0, e:"Când neterminalul este unul singur, el este și cel mai din stânga, și cel mai din dreapta. În G₁, după S → AB sunt două, iar derivările diferă."},
+  {q:"Pentru aⁿbᵐcᵐdⁿ cu m ≥ 1, ieșirea din B este…", o:["B → ε","B → bc","S → B"], a:1, e:"Cel puțin o pereche b…c este necesară mereu, deci ultimul pas pune bc."}
+];
+const qz=$("qz");
+Q.forEach((it,qi)=>{
+  const d=el("div","q"); d.appendChild(el("p",null,(qi+1)+". "+it.q));
+  const os=el("div","opts"), fb=el("div","fb"); fb.setAttribute("aria-live","polite");
+  it.o.forEach((t,oi)=>{
+    const b=el("button","opt",t);
+    b.onclick=()=>{
+      os.querySelectorAll(".opt").forEach(x=>x.classList.remove("right","wrong"));
+      if(oi===it.a){ b.classList.add("right"); fb.textContent="Corect. "+it.e; }
+      else { b.classList.add("wrong"); fb.textContent="Nu chiar. Încercați din nou."; }
+    };
+    os.appendChild(b);
+  });
+  d.append(os,fb); qz.appendChild(d);
+});
+
+/* ---------- Chomsky hierarchy ---------- */
+(function(){
+  const ex=[
+    {w:"a*b*", l:3, e:"Oricâți a, apoi oricâți b. Nu trebuie numărat nimic — ajunge o gramatică regulată (tipul 3)."},
+    {w:"a²ⁿbc", l:3, e:"Gramatica 2 din laborator. Trebuie urmărită doar paritatea numărului de a, iar asta o poate face o gramatică regulată."},
+    {w:"aⁿbᵏcⁿ", l:2, e:"G-ul nostru. Numărul de a trebuie să fie egal cu numărul de c — o gramatică regulată nu poate „număra” așa. E nevoie de tipul 2."},
+    {w:"(()())", l:2, e:"Paranteze corecte: fiecare paranteză deschisă se închide. Tipul 2, ca și sintaxa limbajelor de programare."},
+    {w:"aⁿbⁿcⁿ", l:1, e:"Trei contoare egale deodată. O gramatică independentă de context nu mai ajunge, e nevoie de tipul 1."}
+  ];
+  const box=$("hbtns"), rects=[...document.querySelectorAll("#hier rect")];
+  function pick(i){
+    const it=ex[i];
+    rects.forEach(r=>r.classList.toggle("on", +r.dataset.l===it.l));
+    const lab=$("hlab");
+    lab.setAttribute("y", it.l===3?180:(it.l===2?218:(it.l===1?232:248)));
+    lab.textContent=it.w;
+    $("hexpl").textContent=it.e;
+    box.querySelectorAll(".opt").forEach((b,j)=>b.classList.toggle("right",j===i));
+  }
+  ex.forEach((it,i)=>{ const b=el("button","opt mono",it.w); b.onclick=()=>pick(i); box.appendChild(b); });
+  pick(2);
+})();
+
+/* ---------- Grammar as a filter ---------- */
+(function(){
+  let w="aab", timer=null, done=false;
+  const C=[{t:"a",lab:"a"},{t:"b",lab:"b"},{t:"c",lab:"c"},{t:"end",lab:"sfârșit"}];
+  function cnt(){ return {na:(w.match(/a/g)||[]).length, nb:(w.match(/b/g)||[]).length, nc:(w.match(/c/g)||[]).length}; }
+  function check(t){
+    const {na,nb,nc}=cnt();
+    if(t==="a") return (nb===0&&nc===0)?{ok:true,why:"nu au fost încă b și c — se mai poate adăuga o pereche a…c"}:{ok:false,why:"după b litera a nu poate apărea"};
+    if(t==="b") return nc===0?{ok:true,why:"nu a fost încă c — se pot adăuga b"}:{ok:false,why:"după c litera b nu poate apărea"};
+    if(t==="c"){ if(nb===0) return {ok:false,why:"mai întâi e nevoie de cel puțin un b"}; return nc<na?{ok:true,why:"c sunt deocamdată mai puțini decât a ("+nc+" din "+na+")"}:{ok:false,why:"c sunt deja tot atâția cât a ("+na+")"}; }
+    if(nb===0) return {ok:false,why:"fără b cuvântul nu intră în limbaj"};
+    return nc===na?{ok:true,why:"a și c sunt egali, b există — cuvântul e gata"}:{ok:false,why:"mai trebuie "+(na-nc)+" c, ca a și c să fie egali"};
+  }
+  function add(t){
+    if(done) return;
+    if(t==="end"){ done=true; $("genmsg").textContent="Gata: „"+w+"” aparține lui L(G). Modelul nu putea greși — gramatica nu i-a permis."; }
+    else { w+=t; $("genmsg").textContent=""; }
+    render();
+  }
+  function render(){
+    const box=$("genword"); box.innerHTML="";
+    if(!w) box.appendChild(el("span","status","încă gol"));
+    [...w].forEach((ch,i)=>box.appendChild(symChip(ch, i===w.length-1?"fresh":"")));
+    const cb=$("gencands"); cb.innerHTML="";
+    C.forEach(c=>{
+      const r=check(c.t), d=el("div","cand "+(done?"no":(r.ok?"yes":"no")));
+      d.appendChild(el("span","big",c.lab));
+      d.appendChild(el("span","st", done?"cuvânt terminat":(r.ok?"✓ permis":"✕ interzis")));
+      d.appendChild(el("span","why", done?"":r.why));
+      if(!done && r.ok){ const b=el("button","btn","Adaugă"); b.onclick=()=>{stop(); add(c.t);}; d.appendChild(b); }
+      cb.appendChild(d);
+    });
+  }
+  function stop(){ if(timer){clearInterval(timer);timer=null;} }
+  function auto(){
+    if(done){ stop(); return; }
+    let ok=C.filter(c=>check(c.t).ok).map(c=>c.t);
+    if(w.length>=8){ if(ok.includes("end")) ok=["end"]; else if(ok.includes("c")) ok=["c"]; }
+    add(ok[Math.floor(Math.random()*ok.length)]);
+  }
+  $("genrun").onclick=()=>{ stop(); if(done){ w=""; done=false; }
+    if(reduce){ let g=0; while(!done&&g++<30) auto(); return; }
+    timer=setInterval(auto,800); };
+  $("genreset").onclick=()=>{ stop(); w=""; done=false; $("genmsg").textContent=""; render(); };
+  render();
+})();
+
+/* ---------- Sentence parse ---------- */
+(function(){
+  const GS={nts:["Propoziție","Subiect","Predicat","Complement"], rules:[
+    {n:1,l:"Propoziție",r:["Subiect","Predicat"]},{n:2,l:"Subiect",r:["pisica"]},{n:3,l:"Subiect",r:["câinele"]},
+    {n:4,l:"Predicat",r:["vede","Complement"]},{n:5,l:"Complement",r:["șoarecele"]},{n:6,l:"Complement",r:["mingea"]}]};
+  GS.start="Propoziție";
+  const d=createDeriver($("d3"),{grammar:GS, sep:" ", wide:true, gap:110, presets:[{label:"Arată derivarea „pisica vede șoarecele”", rules:()=>[1,2,4,5]}]});
+  d.instant([1,2,4,5]);
+})();
+
+/* ---------- TOC highlight ---------- */
+const links=[...document.querySelectorAll("nav.toc a")];
+if("IntersectionObserver" in window){
+  const io=new IntersectionObserver(es=>{ es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle("active", a.getAttribute("href")==="#"+e.target.id)); } }); },{rootMargin:"-30% 0px -60% 0px"});
+  document.querySelectorAll("main section").forEach(s=>io.observe(s));
+}
+})();
+</script>
+</body>
+</html>

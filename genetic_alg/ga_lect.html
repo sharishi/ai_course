@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algoritm genetic: curs interactiv</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Plan: jurnal de laborator. Hârtie rece, cobalt = „părintele A / gena 1”, portocaliu = „părintele B”.
+   O coloană ~860px, navigare fixă sus, „standuri” interactive în chenare. */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --surface-2:#eceee9; --ink:#1b2230; --muted:#5b6474; --rule:#d6dad2;
+  --accent:#2b50c8; --accent-2:#dd6326; --s3:#a77a06;
+  --good:#2b8a47; --bad:#b3261e; --good-bg:#e5f3e8; --bad-bg:#f8e4e2;
+  --font-display:"Unbounded", "Segoe UI", system-ui, sans-serif;
+  --font-body:"IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141a; --surface:#191e26; --surface-2:#212732; --ink:#e6e9ef; --muted:#9aa3b3; --rule:#2d3440;
+    --accent:#7d9bff; --accent-2:#ff9a5c; --s3:#e3b341;
+    --good:#5cc27a; --bad:#ff7a70; --good-bg:#1b3324; --bad-bg:#3a1f1f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141a; --surface:#191e26; --surface-2:#212732; --ink:#e6e9ef; --muted:#9aa3b3; --rule:#2d3440;
+  --accent:#7d9bff; --accent-2:#ff9a5c; --s3:#e3b341;
+  --good:#5cc27a; --bad:#ff7a70; --good-bg:#1b3324; --bad-bg:#3a1f1f;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto} *{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.6}
+a{color:var(--accent)}
+h1,h2,h3{text-wrap:balance;line-height:1.2}
+h1{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,5vw,44px);margin:0 0 12px;letter-spacing:-.01em}
+h2{font-family:var(--font-display);font-weight:500;font-size:clamp(22px,3.4vw,28px);margin:0 0 14px}
+h3{font-size:19px;font-weight:600;margin:24px 0 8px}
+p{margin:0 0 12px;max-width:68ch}
+code,.mono{font-family:var(--font-mono);font-size:.92em}
+.num{font-variant-numeric:tabular-nums}
+
+/* nav */
+.topbar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.topbar-in{max-width:1100px;margin:0 auto;padding:8px 16px;display:flex;gap:12px;align-items:center}
+.toc{display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin;flex:1}
+.toc a{white-space:nowrap;text-decoration:none;color:var(--muted);font-size:14px;padding:5px 10px;border-radius:999px}
+.toc a:hover,.toc a.on{color:var(--ink);background:var(--surface-2)}
+.score{white-space:nowrap;font-size:14px;font-family:var(--font-mono);background:var(--surface);border:1px solid var(--rule);padding:4px 10px;border-radius:999px}
+.score b{color:var(--good)}
+.progress{height:3px;background:var(--accent);width:0;transition:width .1s}
+
+main{max-width:880px;margin:0 auto;padding:0 16px 80px}
+section{padding:48px 0 8px;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+.eyebrow{font-family:var(--font-mono);font-size:13px;color:var(--accent);letter-spacing:.04em;margin-bottom:6px}
+.lead{font-size:19px;color:var(--ink)}
+.muted{color:var(--muted)}
+
+/* hero */
+.hero{padding:40px 0 24px}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:20px}
+.hero canvas{width:100%;height:240px;display:block}
+.hero-cap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;color:var(--muted);font-family:var(--font-mono)}
+
+/* stand = interactive block */
+.stand{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:18px;margin:18px 0}
+.stand-title{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin:0 0 12px;display:flex;gap:8px;align-items:center}
+.stand-title::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+canvas.plot{width:100%;height:220px;display:block}
+
+/* bits */
+.bits{display:inline-flex;gap:4px;vertical-align:middle}
+.bit{width:40px;height:46px;border:2px solid var(--accent);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:600;font-size:20px;color:var(--accent);background:transparent;position:relative;user-select:none}
+.bit.one{background:var(--accent);color:var(--surface)}
+.bit.b{border-color:var(--accent-2);color:var(--accent-2)}
+.bit.b.one{background:var(--accent-2);color:var(--surface)}
+.bit.sm{width:24px;height:28px;font-size:14px;border-width:1.5px;border-radius:4px}
+button.bit{cursor:pointer}
+button.bit:hover{transform:translateY(-1px)}
+.bit .idx{position:absolute;top:-18px;font-size:11px;color:var(--muted);font-weight:400}
+.bit.flash{animation:flash .9s ease}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--bad)}30%{box-shadow:0 0 0 6px color-mix(in srgb,var(--bad) 40%,transparent);transform:scale(1.12)}100%{box-shadow:0 0 0 0 transparent}}
+.bit.pop{animation:popin .45s ease both}
+@keyframes popin{from{opacity:0;transform:translateY(-14px) scale(.8)}to{opacity:1;transform:none}}
+.cutline{width:3px;align-self:stretch;background:var(--ink);border-radius:2px;margin:0 3px}
+
+/* controls */
+button.btn{font:inherit;font-size:15px;padding:8px 14px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:var(--surface);cursor:pointer;font-weight:500}
+button.btn.ghost{background:transparent;color:var(--accent)}
+button.btn:hover{filter:brightness(1.08)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+label.ctl{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);min-width:120px}
+label.ctl input[type=number],label.ctl select,input.txt{font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink);font-family:var(--font-mono)}
+input[type=range]{accent-color:var(--accent);width:180px}
+.kv{font-family:var(--font-mono);font-size:15px}
+.formula{font-family:var(--font-mono);background:var(--surface-2);padding:10px 14px;border-radius:8px;display:inline-block;margin:6px 0 12px;font-size:15px}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 10px;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:13px;background:var(--surface-2);position:sticky;top:0}
+tr.hl td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+tr.genstart td{border-top:2px solid var(--rule)}
+td.r,th.r{text-align:right}
+
+/* tiles 16 */
+.tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:12px}
+@media (max-width:600px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{font:inherit;border:1px solid var(--rule);background:var(--bg);border-radius:6px;padding:6px 4px;text-align:center;cursor:pointer;color:var(--ink);font-size:12.5px;line-height:1.35}
+.tile .tb{font-family:var(--font-mono);font-weight:600;font-size:14px}
+.tile.cur{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.tile.top .tb::after{content:" ★";color:var(--s3)}
+
+/* quiz */
+.quiz{border:1px solid var(--rule);border-left:4px solid var(--accent-2);border-radius:8px;padding:14px 16px;margin:18px 0;background:var(--surface)}
+.quiz .qh{font-family:var(--font-mono);font-size:12.5px;color:var(--accent-2);margin-bottom:4px}
+.quiz .q{font-weight:600;margin-bottom:10px}
+.opts{display:grid;gap:8px}
+.opts button{font:inherit;text-align:left;padding:8px 12px;border:1px solid var(--rule);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer}
+.opts button:hover:not(:disabled){border-color:var(--accent)}
+.opts button.right{background:var(--good-bg);border-color:var(--good)}
+.opts button.wrong{background:var(--bad-bg);border-color:var(--bad)}
+.opts button:disabled{cursor:default}
+.ex{display:none;margin-top:10px;font-size:15.5px;padding:10px 12px;border-radius:7px;background:var(--surface-2)}
+.ex.show{display:block}
+.ex b.ok{color:var(--good)} .ex b.no{color:var(--bad)}
+
+/* think box */
+details.think{border:1px dashed var(--rule);border-radius:8px;padding:12px 16px;margin:16px 0;background:var(--surface)}
+details.think summary{cursor:pointer;font-weight:600}
+details.think summary::marker{color:var(--accent)}
+details.think p{margin-top:10px}
+
+/* stepper */
+.steps-nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.steps-nav button{font:inherit;font-size:13.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--rule);background:var(--bg);color:var(--muted);cursor:pointer}
+.steps-nav button.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.steps-nav button.done{color:var(--ink)}
+.step{display:none}
+.step.show{display:block;animation:fadein .35s ease}
+.all-steps .step{display:block;border-top:1px solid var(--rule);padding-top:12px;margin-top:12px}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.why{border-left:3px solid var(--accent);padding:6px 12px;background:var(--surface-2);border-radius:0 6px 6px 0;font-size:15.5px;margin:10px 0}
+.why b{color:var(--accent)}
+
+/* log */
+pre.log{background:var(--surface-2);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:13px;line-height:1.5;max-height:460px;overflow:auto;white-space:pre;margin:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule);margin:16px 0 12px;flex-wrap:wrap}
+.tabs button{font:inherit;font-size:14.5px;border:0;background:none;color:var(--muted);padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpane{display:none}.tabpane.on{display:block}
+.tbl-scroll{max-height:460px;overflow:auto;border:1px solid var(--rule);border-radius:8px}
+
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.result div{background:var(--surface-2);border-radius:8px;padding:10px 12px}
+.result .k{font-size:12.5px;color:var(--muted)}
+.result .v{font-family:var(--font-mono);font-size:19px;font-weight:600}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:13px;font-family:var(--font-mono);background:var(--surface-2)}
+.chip.good{background:var(--good-bg);color:var(--good)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
+.terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.term{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 14px}
+.term b{display:block;font-size:15px}
+.term span{font-size:14.5px;color:var(--muted)}
+.term .bio{font-size:13px;color:var(--accent-2);font-family:var(--font-mono)}
+ol.cycle{counter-reset:c;list-style:none;padding:0;display:grid;gap:8px}
+ol.cycle li{counter-increment:c;display:flex;gap:12px;align-items:flex-start}
+ol.cycle li::before{content:counter(c);font-family:var(--font-mono);font-weight:600;color:var(--surface);background:var(--accent);border-radius:50%;width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:2px}
+pre.code{background:var(--surface-2);padding:14px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.5}
+.answer-in{width:90px}
+.fb{font-size:15px;margin-left:8px}
+.fb.ok{color:var(--good)} .fb.no{color:var(--bad)}
+.pairrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--rule)}
+.pairrow .lbl{font-family:var(--font-mono);font-size:13px;color:var(--muted);min-width:64px}
+.pairrow .op{font-size:14px;color:var(--muted)}
+.chrom{display:inline-flex;gap:3px;align-items:center;white-space:nowrap}
+#frPop th,#frPop td{padding:5px 7px}
+.bit.mut{box-shadow:0 0 0 2px var(--bad);}
+.rbar{position:relative;display:flex;height:40px;border-radius:6px}
+.rbar .seg{height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-mono);font-size:12.5px;font-weight:600;overflow:hidden;white-space:nowrap}
+.rbar .seg:first-child{border-radius:6px 0 0 6px}.rbar .seg:last-of-type{border-radius:0 6px 6px 0}
+.rmark{position:absolute;top:-10px;bottom:-10px;width:3px;margin-left:-1.5px;background:var(--ink);border-radius:2px;transition:left .5s ease}
+.rmark span{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:12px;white-space:nowrap;color:var(--ink);font-weight:600}
+.rscale{position:relative;height:22px;margin-top:4px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
+.rscale span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.rscale span:first-child{transform:none}.rscale span:last-child{transform:translateX(-100%)}
+.thm{border:1px solid var(--rule);border-left:4px solid var(--s3);background:var(--surface);border-radius:8px;padding:12px 16px;margin:16px 0}
+.thm .th{font-family:var(--font-mono);font-size:12.5px;color:var(--s3);margin-bottom:6px}
+.thm p{margin:0 0 8px}
+.final-score{font-family:var(--font-display);font-size:22px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-in">
+    <nav class="toc" id="toc">
+      <a href="#intro">Introducere</a>
+      <a href="#why">De ce avem nevoie</a>
+      <a href="#task">Ce căutăm</a>
+      <a href="#terms">Dicționar</a>
+      <a href="#coding">Codificare</a>
+      <a href="#selection">Selecție</a>
+      <a href="#crossover">Încrucișare</a>
+      <a href="#mutation">Mutație</a>
+      <a href="#example">Exemplu rezolvat</a>
+      <a href="#fullrun">Rulare completă</a>
+      <a href="#sim">Simulator</a>
+      <a href="#experiments">Experimente</a>
+      <a href="#test">Test final</a>
+    </nav>
+    <div class="score" title="Răspunsuri corecte în toate testele cursului">✓ <b id="scoreOk">0</b>/<span id="scoreAll">0</span></div>
+  </div>
+  <div class="progress" id="progress"></div>
+</div>
+
+<main>
+<!-- ============ INTRO ============ -->
+<section id="intro" class="hero">
+  <div class="eyebrow">Curs · Optimizare evolutivă</div>
+  <h1>Algoritmul genetic: cum caută evoluția maximul unei funcții</h1>
+  <p class="lead">Imaginați-vă un ameliorator care vrea să obțină cea mai înaltă floarea-soarelui. Nu are o formulă după care să calculeze „sămânța ideală”. Seamănă multe semințe diferite, așteaptă să crească plantele și le păstrează pentru reproducere pe cele mai înalte. Polenul lor se amestecă, iar uneori o plantă capătă o proprietate nouă, întâmplătoare. După câteva sezoane, florile-soarelui devin vizibil mai înalte, deși amelioratorul nu a rezolvat nicio ecuație.</p>
+  <p>Algoritmul genetic (AG) transferă această idee în programare. În loc de floarea-soarelui avem variante de soluție a problemei; în exemplul nostru acestea sunt numerele <var>x</var>. În loc de înălțimea plantei avem evaluarea variantei, valoarea funcției <var>f(x)</var>. Algoritmul nu are nevoie de derivată și nici măcar de formula funcției. Îi ajunge să poată întreba: „cât de bună este această variantă?”</p>
+  <div class="stand">
+    <div class="stand-title">Demonstrație live: o populație de 6 indivizi caută maximul f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1</div>
+    <canvas id="heroCanvas" aria-label="Animație: punctele-indivizi se deplasează pe graficul funcției spre maximul ei"></canvas>
+    <div class="hero-cap"><span id="heroGen">Generația 1</span><span id="heroBest">cel mai bun f = —</span><button class="btn ghost" id="heroRestart" type="button">Populație nouă</button></div>
+  </div>
+  <p>Fiecare punct colorat de pe grafic este un individ, adică o soluție-candidat. Punctele gri arată toate cele 16 valori ale lui <var>x</var> care pot fi scrise pe patru biți. Generație după generație, indivizii se adună în jurul celui mai înalt punct. Astăzi vom vedea de ce se întâmplă asta.</p>
+  <h3>Planul cursului</h3>
+  <ol class="cycle">
+    <li><span><b>De ce avem nevoie de el.</b> Ce probleme se rezolvă astfel și de ce metodele simple nu sunt potrivite.</span></li>
+    <li><span><b>Formularea problemei.</b> Ce anume căutăm, ce se consideră răspuns și câte treceri face algoritmul.</span></li>
+    <li><span><b>Codificarea.</b> Cum transformăm un număr într-un cromozom din biți și invers.</span></li>
+    <li><span><b>Selecție, încrucișare, mutație.</b> Cele trei acțiuni „evolutive” din care este construit algoritmul.</span></li>
+    <li><span><b>Exemplu rezolvat.</b> O trecere de mână, după formule, pas cu pas, apoi toate cele 30 de generații.</span></li>
+    <li><span><b>Simulator și experimente.</b> Cum influențează parametrii <var>p<sub>c</sub></var>, <var>p<sub>m</sub></var> și <var>N</var> rezultatul.</span></li>
+  </ol>
+</section>
+
+<!-- ============ WHY ============ -->
+<section id="why">
+  <div class="eyebrow">§0 · De ce avem nevoie</div>
+  <h2>Problema de optimizare: găsește cea mai bună variantă dintr-un număr uriaș de posibilități</h2>
+  <p><b>Optimizarea</b> înseamnă căutarea variantei pentru care o anumită evaluare este cea mai mare (sau cea mai mică). Rezolvăm astfel de probleme mereu, doar că nu le numim așa. Iată câteva exemple.</p>
+  <div class="terms">
+    <div class="term"><div class="bio">bucătărie</div><b>Rețeta de pizza</b><span>Alegem cantitatea de sare, zahăr, drojdie și timpul de coacere. Evaluarea — notele degustătorilor. Nu există o formulă a gustului: o variantă poate fi doar coaptă și gustată.</span></div>
+    <div class="term"><div class="bio">universitate</div><b>Orarul</b><span>Ce oră, în ce sală și la ce oră din zi. Evaluarea — numărul de suprapuneri (o minimizăm). Variantele sunt astronomic de multe.</span></div>
+    <div class="term"><div class="bio">logistică</div><b>Traseul curierului</b><span>În ce ordine vizităm 20 de adrese. Evaluarea — lungimea drumului. Ordini posibile: 20! ≈ 2.4·10<sup>18</sup>.</span></div>
+    <div class="term"><div class="bio">învățare automată</div><b>Ajustarea modelului</b><span>Rata de învățare, adâncimea arborilor, numărul de straturi. Evaluarea — acuratețea pe datele de validare. O singură verificare înseamnă o antrenare completă a modelului.</span></div>
+    <div class="term"><div class="bio">inginerie</div><b>Antena unui satelit</b><span>În misiunea NASA Space Technology 5 (2006), forma antenei a fost aleasă de un algoritm evolutiv. A rezultat un fir îndoit ciudat, care a satisfăcut cerințele misiunii.</span></div>
+    <div class="term"><div class="bio">jocuri</div><b>Comportamentul unui bot</b><span>Cât de agresiv să atace, când să se retragă. Evaluarea — procentul de partide câștigate.</span></div>
+  </div>
+  <h3>Ce au în comun aceste probleme</h3>
+  <ol class="cycle">
+    <li><span><b>Varianta poate fi scrisă</b> ca un set de numere sau simboluri. Acesta va fi „cromozomul”.</span></li>
+    <li><span><b>Fiecare variantă poate fi evaluată</b> printr-un singur număr: cât de bună este. Aceasta este funcția noastră <var>f</var>; în AG se numește <i>fitness</i>, „gradul de adaptare”.</span></li>
+    <li><span><b>Nu există o formulă gata făcută a răspunsului.</b> Nu putem lua derivata și rezolva o ecuație. Putem doar încerca variante și privi evaluarea. O astfel de funcție se numește „cutie neagră”.</span></li>
+  </ol>
+
+  <h3>Metoda 1: verificăm toate variantele</h3>
+  <p>Cea mai cinstită metodă este să verificăm toate variantele la rând și să o luăm pe cea mai bună. Aceasta se numește <b>căutare exhaustivă</b>. Găsește mereu răspunsul corect, dar există o problemă: numărul de variante crește foarte repede. Fiecare bit adăugat dublează munca. Mișcați glisorul și vedeți singuri.</p>
+  <div class="stand">
+    <div class="stand-title">Stand: cât timp durează căutarea exhaustivă</div>
+    <div class="row">
+      <label class="ctl" for="bfL" style="flex-direction:row;align-items:center;gap:10px">Lungimea cromozomului L = <b class="kv" id="bfLv">4</b> biți<input type="range" id="bfL" min="4" max="64" value="4"></label>
+    </div>
+    <div class="result" id="bfOut"></div>
+    <p class="muted" style="font-size:14.5px;margin:0">Presupunem că verificarea unei variante durează 1 milisecundă. La ajustarea unei rețele neuronale, o verificare poate dura ore.</p>
+  </div>
+  <p>Pentru claritate, mai departe luăm L = 4: atunci căutarea exhaustivă durează 16 milisecunde. Problema este aleasă intenționat mică: răspunsul AG poate fi verificat prin căutare exhaustivă, ca să ne convingem că algoritmul funcționează. În problemele reale o astfel de verificare nu va mai fi posibilă.</p>
+
+  <h3>Metoda 2: pășim acolo unde e mai bine</h3>
+  <p>A doua metodă naturală: pornim dintr-un punct și de fiecare dată facem un pas în direcția în care evaluarea e mai mare. Imaginați-vă un turist în ceață deasă, printre dealuri. Vede doar pământul de sub picioare și vrea să urce pe cel mai înalt vârf. Face un pas acolo unde e mai sus, apoi încă unul. Când în toate direcțiile începe coborârea, decide că a ajuns pe vârf. Dar poate fi un deal mic, iar muntele adevărat e alături, dincolo de vale.</p>
+  <div class="stand">
+    <div class="stand-title">Stand: „turistul în ceață” pe funcția variantei 1</div>
+    <canvas class="plot" id="hcPlot" aria-label="Drumul turistului pe graficul funcției"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" type="button" id="hcStart">Pune turistul într-un punct aleator</button>
+      <button class="btn ghost" type="button" id="hcAll">Verifică toate cele 16 starturi</button>
+    </div>
+    <p id="hcOut" style="margin:12px 0 0">Turistul stă pe unul dintre cele 16 puncte ale grilei și poate păși doar spre punctul vecin din stânga sau din dreapta.</p>
+  </div>
+  <p>Un astfel de „vârf fals” se numește <b>maxim local</b>: este mai bun decât toți vecinii, dar nu mai bun decât toate punctele. Cel mai înalt punct din tot domeniul se numește <b>maxim global</b>. Pe acesta îl căutăm.</p>
+  <div class="why"><b>Cum ocolește algoritmul genetic această capcană.</b> În primul rând, caută nu cu un singur punct, ci cu un grup de puncte (populație) în locuri diferite, ca o echipă de turiști răspândiți pe teren. În al doilea rând, combină soluțiile reușite (încrucișare) și poate „sări” peste vale. În al treilea rând, face uneori pași aleatori (mutație), ca să nu rămână blocat pentru totdeauna.</div>
+
+  <h3>Dicționarul amelioratorului și dicționarul programatorului</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>La ameliorator</th><th>În algoritmul genetic</th><th>În exemplul nostru</th></tr>
+    <tr><td>Plantă</td><td>Individ</td><td>Un cromozom, de exemplu <code>0110</code></td></tr>
+    <tr><td>Setul de gene al plantei</td><td>Cromozom</td><td>Șir de 4 biți</td></tr>
+    <tr><td>Înălțimea florii-soarelui</td><td>Fitness, grad de adaptare</td><td>Valoarea f(x)</td></tr>
+    <tr><td>Toate plantele de pe câmp</td><td>Populație</td><td>N cromozomi</td></tr>
+    <tr><td>Păstrăm pentru reproducere pe cele înalte</td><td>Selecție</td><td>Selecție proporțională cu f(x)</td></tr>
+    <tr><td>Polenizarea unei plante cu polenul alteia</td><td>Încrucișare (crossover)</td><td>Schimb de părți ale șirurilor</td></tr>
+    <tr><td>O proprietate nouă, întâmplătoare</td><td>Mutație</td><td>Inversarea unui bit</td></tr>
+    <tr><td>Un sezon</td><td>Generație</td><td>Un pas al ciclului, în total G</td></tr>
+  </table></div>
+
+  <div class="quiz" data-answer="b">
+    <div class="qh">Mini-test 0.1</div>
+    <div class="q">Care este principala slăbiciune a metodei „pășim acolo unde e mai bine”?</div>
+    <div class="opts">
+      <button type="button" data-k="a">Este prea lentă</button>
+      <button type="button" data-k="b">Se poate opri într-un maxim local și să nu-l găsească pe cel global</button>
+      <button type="button" data-k="c">Are nevoie de formula funcției</button>
+      <button type="button" data-k="d">Nu funcționează cu numere binare</button>
+    </div>
+    <div class="ex">Turistul vede doar punctele vecine. Dacă toți vecinii sunt mai jos, se oprește, chiar dacă alături există un vârf mai înalt. AG reduce acest risc datorită populației, încrucișării și mutației.</div>
+  </div>
+  <div class="quiz" data-answer="c">
+    <div class="qh">Mini-test 0.2</div>
+    <div class="q">Cromozomul a devenit mai lung cu 1 bit. Cum se schimbă timpul căutării exhaustive?</div>
+    <div class="opts">
+      <button type="button" data-k="a">Crește cu o verificare</button>
+      <button type="button" data-k="b">Nu se schimbă</button>
+      <button type="button" data-k="c">Crește de 2 ori</button>
+      <button type="button" data-k="d">Crește de 10 ori</button>
+    </div>
+    <div class="ex">Erau 2<sup>L</sup> variante, au devenit 2<sup>L+1</sup> = 2·2<sup>L</sup>. Fiecare bit nou dublează numărul de variante, de aceea la 50 de biți căutarea exhaustivă durează zeci de mii de ani.</div>
+  </div>
+</section>
+
+<!-- ============ TASK ============ -->
+<section id="task">
+  <div class="eyebrow">§1 · Formularea problemei</div>
+  <h2>Ce anume căutăm și câte treceri face algoritmul</h2>
+  <p>Înainte de a analiza operatorii, să stabilim ce se consideră răspuns și cât timp lucrează algoritmul. Fără asta nu e clar de ce sunt necesari toți pașii.</p>
+
+  <h3>Ce este dat</h3>
+  <ul>
+    <li>Funcția f(x), de exemplu f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1.</li>
+    <li>Intervalul x ∈ [0, 1].</li>
+    <li>Lungimea cromozomului L = 4. Deci x poate lua doar 16 valori: x = b / 15, unde b = 0, 1, …, 15.</li>
+  </ul>
+
+  <h3>Ce căutăm</h3>
+  <p>Dintre aceste 16 valori trebuie găsită cea în care funcția este cea mai mare. Matematic se scrie așa:</p>
+  <div class="formula">x* = arg max f(b / 15),  unde b ∈ {0, 1, …, 15}</div>
+  <p>Simbolul „arg max” se citește „argumentul pentru care se atinge maximul”. Răspunsul are trei părți: <b>cel mai bun cromozom</b> (de exemplu <code>0111</code>), <b>x*</b> (de exemplu 7/15 ≈ 0.4667) și <b>f(x*)</b> (de exemplu 1.7311).</p>
+
+  <h3>Ce este o „trecere”</h3>
+  <p>O trecere a algoritmului se numește <b>generație</b>. Într-o trecere, populația de N indivizi se transformă într-o populație nouă de N indivizi. În interiorul trecerii sunt mereu aceleași șase acțiuni:</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Pas</th><th>Ce facem</th><th>Formula</th><th>De ce</th></tr>
+    <tr><td>1</td><td>Decodificare</td><td class="mono">x<sub>i</sub> = b<sub>i</sub> / 15</td><td>Transformăm genele într-un număr pe care îl înțelege funcția</td></tr>
+    <tr><td>2</td><td>Evaluare</td><td class="mono">f<sub>i</sub> = f(x<sub>i</sub>)</td><td>Aflăm care indivizi sunt mai buni</td></tr>
+    <tr><td>3</td><td>Selecția părinților</td><td class="mono">e<sub>i</sub> = f<sub>i</sub> / f̄</td><td>Le dăm celor mai buni mai mulți urmași</td></tr>
+    <tr><td>4</td><td>Formarea perechilor</td><td>regula din enunț</td><td>Pregătim încrucișarea</td></tr>
+    <tr><td>5</td><td>Încrucișare</td><td>cu probabilitatea p<sub>c</sub></td><td>Combinăm părțile reușite ale unor soluții diferite</td></tr>
+    <tr><td>6</td><td>Mutație</td><td>p<sub>m</sub> pentru fiecare bit</td><td>Aducem ceva nou, ce nu exista în populație</td></tr>
+  </table></div>
+  <p style="margin-top:12px">Schema întregii rulări: P<sub>1</sub> → P<sub>2</sub> → … → P<sub>G</sub>, unde P<sub>t</sub> este populația generației t.</p>
+
+  <h3>Câte treceri</h3>
+  <p>Numărul de treceri G se stabilește dinainte: de obicei zeci sau sute de generații, în exemplul nostru G = 30. De ce nu ne putem opri „când am găsit maximul”? Într-o problemă reală nu știm care maxim este cel corect, deci nu putem spune „am găsit”. Există trei reguli de oprire răspândite:</p>
+  <ol class="cycle">
+    <li><span><b>Număr fix de generații G.</b> Cea mai simplă regulă: decidem dinainte, de exemplu, „30 de generații” și ne oprim. Se folosește când avem nevoie de un timp de lucru previzibil sau când comparăm diferite setări ale algoritmului în condiții egale.</span></li>
+    <li><span><b>Nicio îmbunătățire.</b> Cel mai bun rezultat nu s-a schimbat, de exemplu, 10 generații la rând.</span></li>
+    <li><span><b>Populația a devenit identică.</b> De aici înainte doar mutația mai poate aduce ceva nou.</span></li>
+  </ol>
+  <p>Într-o trecere funcția se calculează de N ori, în toată rularea — de cel mult N · G ori. Algoritmul genetic este avantajos atunci când N · G este mult mai mic decât numărul tuturor variantelor. De exemplu, la 40 de biți există circa 10<sup>12</sup> variante, iar un AG cu N = 50 și G = 200 face cel mult 10 000 de calcule: o sutime de milionime. În exemplul nostru sunt doar 4 biți, adică 16 variante, și aici căutarea exhaustivă este mai rapidă. Problema este intenționat mică: fiecare pas poate fi verificat de mână, iar răspunsul AG poate fi comparat cu cel corect. Observați și că multe dintre cele N · G calcule se repetă: aceiași cromozomi apar în generații diferite.</p>
+
+  <h3>Ce reținem la fiecare trecere și ce considerăm răspuns</h3>
+  <p>După fiecare trecere notăm fitness-ul maxim, minim și mediu. Separat păstrăm <b>cel mai bun individ din toată rularea</b>:</p>
+  <div class="formula">f<sub>best</sub>(t) = max { f<sub>i</sub>(τ) : τ ≤ t, i = 1…N }</div>
+  <p>Răspunsul algoritmului este cel mai bun individ din toate cele G treceri, nu neapărat cel mai bun din ultima generație. Cel mai bun individ se poate „pierde”: l-au stricat încrucișarea sau mutația. Pentru verificare comparăm răspunsul cu căutarea exhaustivă a celor 16 valori.</p>
+  <div class="why"><b>Elitismul</b> este regula prin care cel mai bun individ al generației trece în generația următoare fără modificări, ocolind încrucișarea și mutația. Ca un campion al sezonului trecut, inclus automat în turneul următor. Fără elitism, cel mai bun individ poate dispărea, iar maximul generației următoare va fi mai mic. Cu elitism, maximul nu scade niciodată de la o generație la alta. Elitismul poate fi activat în simulator și în experimentele de mai jos.</div>
+
+  <div class="quiz" data-answer="c">
+    <div class="qh">Mini-test 1.1</div>
+    <div class="q">N = 4, G = 30. De câte ori va calcula algoritmul f(x) în toată rularea?</div>
+    <div class="opts">
+      <button type="button" data-k="a">16</button>
+      <button type="button" data-k="b">34</button>
+      <button type="button" data-k="c">120</button>
+      <button type="button" data-k="d">4</button>
+    </div>
+    <div class="ex">Fiecare dintre cele 30 de generații evaluează 4 indivizi: 4 · 30 = 120.</div>
+  </div>
+  <div class="quiz" data-answer="b">
+    <div class="qh">Mini-test 1.2</div>
+    <div class="q">În generația 12 s-a găsit f = 1.73, iar în generația 30 cel mai bun individ dă 1.53. Ce scriem ca răspuns?</div>
+    <div class="opts">
+      <button type="button" data-k="a">1.53 — rezultatul ultimei generații</button>
+      <button type="button" data-k="b">1.73 — cel mai bun individ din toate trecerile</button>
+      <button type="button" data-k="c">Media acestor numere</button>
+      <button type="button" data-k="d">Rularea a eșuat, nu există răspuns</button>
+    </div>
+    <div class="ex">Răspunsul este cel mai bun individ găsit în toată rularea. Faptul că ulterior s-a pierdut arată lipsa elitismului, dar soluția găsită rămâne găsită.</div>
+  </div>
+</section>
+
+<!-- ============ TERMS ============ -->
+<section id="terms">
+  <div class="eyebrow">§2 · Dicționar</div>
+  <h2>Cuvinte din biologie și ce înseamnă ele în cod</h2>
+  <div class="terms">
+    <div class="term"><div class="bio">genă</div><b>Un bit</b><span>0 sau 1. Cea mai mică unitate de informație ereditară.</span></div>
+    <div class="term"><div class="bio">cromozom</div><b>Șir de biți de lungime L</b><span>De exemplu, <code>1010</code>. Codifică o valoare x.</span></div>
+    <div class="term"><div class="bio">individ</div><b>O soluție-candidat</b><span>Cromozomul împreună cu valoarea sa de fitness.</span></div>
+    <div class="term"><div class="bio">populație</div><b>Un set de N indivizi</b><span>Algoritmul lucrează cu tot setul deodată, nu cu un singur punct.</span></div>
+    <div class="term"><div class="bio">grad de adaptare</div><b>Fitness = f(x)</b><span>Cât de bună este soluția. Căutăm maximul, deci cu cât e mai mare, cu atât mai bine.</span></div>
+    <div class="term"><div class="bio">generație</div><b>O iterație a ciclului</b><span>Evaluare → selecție → încrucișare → mutație. În total G generații.</span></div>
+  </div>
+  <h3>Ciclul evolutiv</h3>
+  <ol class="cycle">
+    <li><span><b>Inițializare.</b> Creăm N cromozomi aleatori.</span></li>
+    <li><span><b>Evaluare.</b> Decodificăm fiecare cromozom în x și calculăm f(x).</span></li>
+    <li><span><b>Selecție.</b> Alegem părinții: cei mai buni au șanse mai mari.</span></li>
+    <li><span><b>Încrucișare</b> cu probabilitatea p<sub>c</sub>: părinții fac schimb de porțiuni de cromozom.</span></li>
+    <li><span><b>Mutație</b> cu probabilitatea p<sub>m</sub> pentru <i>fiecare bit</i>: bitul se inversează.</span></li>
+    <li><span><b>Generația nouă</b> o înlocuiește pe cea veche. Revenim la pasul 2 până parcurgem G generații.</span></li>
+  </ol>
+</section>
+
+<!-- ============ CODING ============ -->
+<section id="coding">
+  <div class="eyebrow">§3 · Codificare</div>
+  <h2>Cum scriem un număr ca să-l putem „încrucișa”</h2>
+  <p>Mai întâi să înțelegem de ce avem nevoie de biți. Ca să încrucișăm și să mutăm soluțiile, trebuie să le scriem într-o formă comodă. Cum „încrucișăm” numerele 0.4 și 0.0667? Nu e clar. În schimb, două șiruri <code>0110</code> și <code>0001</code> pot fi ușor tăiate la mijloc, iar jumătățile lipite. Schimbarea unui singur simbol din șir e la fel de simplă. De aceea fiecare valoare <var>x</var> o scriem ca șir de zerouri și unu. Acest șir este <b>cromozomul</b>, iar fiecare simbol al lui este o <b>genă</b>.</p>
+
+  <h3>Pasul 1. Citim numărul binar</h3>
+  <p>Fiecare poziție din cromozom are „greutatea” ei, ca niște monede de valori diferite: 8, 4, 2 și 1. Unu înseamnă „moneda este”, zero înseamnă „moneda lipsește”. Adunăm greutățile pozițiilor unde stau unități.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Cromozom</th><th class="r">greutate 8</th><th class="r">greutate 4</th><th class="r">greutate 2</th><th class="r">greutate 1</th><th>Suma b</th></tr>
+    <tr><td class="mono">0110</td><td class="r">0</td><td class="r">4</td><td class="r">2</td><td class="r">0</td><td>0 + 4 + 2 + 0 = <b>6</b></td></tr>
+    <tr><td class="mono">0001</td><td class="r">0</td><td class="r">0</td><td class="r">0</td><td class="r">1</td><td>= <b>1</b></td></tr>
+    <tr><td class="mono">1111</td><td class="r">8</td><td class="r">4</td><td class="r">2</td><td class="r">1</td><td>= <b>15</b>, cea mai mare valoare</td></tr>
+    <tr><td class="mono">0000</td><td class="r">0</td><td class="r">0</td><td class="r">0</td><td class="r">0</td><td>= <b>0</b>, cea mai mică</td></tr>
+  </table></div>
+
+  <h3>Pasul 2. Trecem în intervalul [0, 1]</h3>
+  <p>Avem nevoie de <var>x</var> între 0 și 1, iar <var>b</var> a ieșit între 0 și 15. Împărțim la cea mai mare valoare posibilă, 15. Atunci <code>0000</code> dă exact 0, iar <code>1111</code> dă exact 1:</p>
+  <div class="formula">x = b / (2<sup>L</sup> − 1) = b / 15</div>
+  <p>De exemplu, <code>0110</code>: x = 6 / 15 = 0.4. De ce împărțim la 15, și nu la 16? La împărțirea la 16, cromozomul <code>1111</code> ar da 0.9375, iar capătul din dreapta al intervalului, x = 1, nu ar fi verificat niciodată.</p>
+
+  <h3>Pasul 3. Calculăm evaluarea (fitness)</h3>
+  <p>Înlocuim <var>x</var> în funcție: f(0.4) ≈ 1.5349. Acest număr este evaluarea individului. Cu cât e mai mare, cu atât individul rezolvă mai bine problema.</p>
+  <p>O consecință importantă: 4 biți dau doar 16 puncte posibile: 0, 1/15, 2/15, …, 1. Distanța dintre punctele vecine ≈ 0.0667. Algoritmul nu poate ajunge „între” ele. Dacă e nevoie de o precizie mai mare, se iau mai mulți biți.</p>
+
+  <div class="stand">
+    <div class="stand-title">Stand: apăsați pe biți</div>
+    <div class="grid2">
+      <div>
+        <div class="bits" id="encBits" style="margin-top:20px"></div>
+        <div class="kv" id="encCalc" style="margin-top:14px"></div>
+      </div>
+      <canvas class="plot" id="encPlot" aria-label="Graficul funcției cu punctul cromozomului curent marcat"></canvas>
+    </div>
+    <p class="muted" style="margin:12px 0 0;font-size:14.5px">Toți cei 16 cromozomi posibili pentru funcția din exemplu f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1. Steluța marchează maximul global pe grilă. Apăsați pe o casetă ca s-o alegeți.</p>
+    <div class="tiles" id="tiles"></div>
+  </div>
+  <div class="quiz" data-answer="c">
+    <div class="qh">Mini-test 3.1</div>
+    <div class="q">Cromozomul <code>1011</code>. Cât este x?</div>
+    <div class="opts">
+      <button type="button" data-k="a">x = 0.7333</button>
+      <button type="button" data-k="b">x = 1.1</button>
+      <button type="button" data-k="c">x = 0.7333… mai exact 11/15</button>
+      <button type="button" data-k="d">x = 0.6875</button>
+    </div>
+    <div class="ex">1011₂ = 8 + 0 + 2 + 1 = 11, x = 11/15 ≈ 0.7333. Varianta „a” dă și ea numărul corect, dar răspunsul complet este fracția 11/15. Greșeala „d” apare dacă împărțim la 2<sup>L</sup> = 16 în loc de 15: atunci valoarea x = 1 devine imposibil de atins.</div>
+  </div>
+  <details class="think">
+    <summary>Gândiți-vă: la L = 4 sunt doar 16 variante. De ce mai avem nevoie de algoritmul genetic, dacă le putem verifica pe toate?</summary>
+    <p>Corect, la L = 4 căutarea exhaustivă înseamnă 16 calcule și e mai simplă. Cromozomul scurt e ales ca fiecare pas al algoritmului să poată fi verificat de mână. La L = 40 sunt deja circa 10<sup>12</sup> variante, iar pentru probleme cu zeci de variabile căutarea exhaustivă devine imposibilă. Mecanica AG rămâne însă aceeași.</p>
+  </details>
+</section>
+
+<!-- ============ SELECTION ============ -->
+<section id="selection">
+  <div class="eyebrow">§4 · Selecție</div>
+  <h2>Cine devine părinte</h2>
+  <p>Avem o populație, iar fiecare individ are o evaluare f. Acum trebuie să decidem ale cui gene trec în generația următoare. Să comparăm trei strategii.</p>
+  <div class="terms">
+    <div class="term"><div class="bio">strategia 1 · rău</div><b>„Doar cel mai bun”</b><span>Părinte devine mereu un singur individ, cel mai bun. Diversitatea dispare imediat. Dacă cel mai bun individ stă pe un deal mic, toată populația rămâne blocată acolo.</span></div>
+    <div class="term"><div class="bio">strategia 2 · rău</div><b>„Toți egal”</b><span>Fiecare individ dă la fel de mulți urmași, fie bun, fie rău. Genele bune nu primesc niciun avantaj, nu există progres.</span></div>
+    <div class="term"><div class="bio">strategia 3 · ce ne trebuie</div><b>„Proporțional cu evaluarea”</b><span>Cu cât f este mai mare, cu atât mai mulți urmași. Cei mai buni se înmulțesc mai mult, dar participă și indivizii destul de buni. Aceasta este selecția pe care o folosim.</span></div>
+  </div>
+  <p style="margin-top:12px">De ce nu doar cei mai buni? Un individ „mediu” poate avea o bucată utilă de cromozom. În exemplul nostru <code>0001</code> nu este cel mai bun, dar tocmai ultimul lui bit <code>1</code>, în pereche cu <code>0110</code>, dă maximul <code>0111</code>.</p>
+
+  <h3>Pasul 1. Cota fiecărui individ</h3>
+  <p>Calculăm ce parte din „evaluarea totală” a populației aduce fiecare individ:</p>
+  <div class="formula">p<sub>i</sub> = f<sub>i</sub> / (f<sub>1</sub> + f<sub>2</sub> + … + f<sub>N</sub>) = f<sub>i</sub> / Σf</div>
+  <div class="tbl-wrap"><table>
+    <tr><th>Nr.</th><th>Cromozom</th><th class="r">f<sub>i</sub></th><th class="r">p<sub>i</sub> = f<sub>i</sub> / 4.3986</th></tr>
+    <tr><td>1</td><td class="mono">0100</td><td class="r">0.2573</td><td class="r">0.0585</td></tr>
+    <tr><td>2</td><td class="mono">0110</td><td class="r">1.5349</td><td class="r">0.3490</td></tr>
+    <tr><td>3</td><td class="mono">1011</td><td class="r">1.2084</td><td class="r">0.2747</td></tr>
+    <tr><td>4</td><td class="mono">0001</td><td class="r">1.3980</td><td class="r">0.3178</td></tr>
+    <tr><td></td><td><b>Suma</b></td><td class="r"><b>4.3986</b></td><td class="r"><b>1.0000</b></td></tr>
+  </table></div>
+  <p style="margin-top:12px">Cotele dau întotdeauna în sumă 1. Individul <code>0110</code> aduce 34.9% din evaluarea totală, iar <code>0100</code> doar 5.9%.</p>
+
+  <h3>Pasul 2. Câte locuri „merită” fiecare individ</h3>
+  <p>Avem nevoie de N locuri pentru părinți: fiecare pereche dă doi urmași, iar generația nouă trebuie să aibă tot N indivizi. La N = 4 sunt 4 locuri, adică 2 perechi. Împărțim locurile proporțional cu cotele:</p>
+  <div class="formula">e<sub>i</sub> = N · p<sub>i</sub> = f<sub>i</sub> / f̄,   unde f̄ = Σf / N — fitness-ul mediu</div>
+  <p>Mărimea e<sub>i</sub> se numește <b>numărul așteptat de copii</b>. Sensul e simplu: un individ de două ori mai bun decât media (e = 2) merită două locuri, un individ sub medie (e &lt; 1) — mai puțin de unul.</p>
+  <div class="thm"><div class="th">Afirmația 1 · locurile se împart fără rest</div>
+    <p>Suma tuturor e<sub>i</sub> este întotdeauna egală cu N.</p>
+    <p class="muted" style="font-size:15px;margin:0"><b>De ce.</b> Σe<sub>i</sub> = Σf<sub>i</sub> / f̄ = Σf<sub>i</sub> / (Σf<sub>i</sub> / N) = N. Adică locurile „meritate” umplu exact toate cele N locuri.</p>
+  </div>
+  <p>Există o singură problemă: e<sub>i</sub> este fracționar, de exemplu 1.396, iar un loc de părinte este un număr întreg. Trebuie rotunjit cu grijă. Pentru asta există două metode.</p>
+
+  <h3>Metoda 1. Partea întreagă + restul</h3>
+  <ol class="cycle">
+    <li><span>Fiecare individ primește ⌊e<sub>i</sub>⌋ locuri — partea întreagă, rotunjire în jos.</span></li>
+    <li><span>Calculăm câte locuri au rămas: R = N − Σ⌊e<sub>i</sub>⌋.</span></li>
+    <li><span>Locurile rămase le dăm câte unul indivizilor cu cele mai mari părți fracționare e<sub>i</sub> − ⌊e<sub>i</sub>⌋, începând cu cea mai mare.</span></li>
+  </ol>
+  <p>Este ca la împărțirea mandatelor în parlament după procentele de voturi: mai întâi fiecare primește partea întreagă, iar locurile rămase le primesc cei cu cele mai mari „resturi”.</p>
+
+  <h3>Metoda 2. Pas egal pe segment</h3>
+  <p>Așezăm cotele p<sub>i</sub> una după alta pe segmentul de la 0 la 1. Fiecare individ primește o bucată de lungime p<sub>i</sub>. Limitele bucăților sunt sumele cumulate ale cotelor: 0.0585, apoi 0.0585 + 0.3490 = 0.4075 și așa mai departe. Apoi punem pe segment N puncte cu pas egal 1/N:</p>
+  <div class="formula">r<sub>j</sub> = (j − 0.5) / N,   j = 1, …, N   →   la N = 4: 0.125, 0.375, 0.625, 0.875</div>
+  <p>Cui îi aparține bucata pe care a căzut punctul, acela primește locul. O bucată lungă acoperă mai multe puncte.</p>
+  <div class="thm"><div class="th">Afirmația 2 · metoda 2 nu greșește cu mai mult de un loc</div>
+    <p>Fiecare individ primește fie ⌊e<sub>i</sub>⌋, fie ⌈e<sub>i</sub>⌉ locuri.</p>
+    <p class="muted" style="font-size:15px;margin:0"><b>De ce.</b> Punctele stau la distanța 1/N. Pe o bucată de lungime p<sub>i</sub> încap N · p<sub>i</sub> = e<sub>i</sub> pași, rotunjit în jos sau în sus. De aceea un individ nu primește niciodată mult mai mult sau mult mai puțin decât merită.</p>
+  </div>
+
+  <div class="stand">
+    <div class="stand-title">Stand: ambele metode pe populația 0100, 0110, 1011, 0001</div>
+    <div class="tbl-wrap"><table id="dsTable"></table></div>
+    <p class="kv" style="margin:18px 0 26px;font-size:13px">Metoda 2: segmentul [0; 1), bucăți după cote și 4 puncte cu pasul 0.25</p>
+    <div class="rbar" id="rbar"></div>
+    <div class="rscale" id="rscale"></div>
+    <div id="dsText" style="margin-top:14px;font-size:15.5px"></div>
+  </div>
+
+  <div class="thm"><div class="th">Afirmația 3 · selecția îmbunătățește populația</div>
+    <p><b>Fitness-ul mediu al părinților aleși nu este mai mic decât fitness-ul mediu al întregii populații.</b></p>
+    <p>De ce: indivizii slabi primesc mai puține locuri, cei puternici — mai multe, de aceea „părintele mediu” se deplasează spre cei puternici. Cât de mult depinde de cât de diferiți sunt indivizii între ei. Dacă toți indivizii sunt aproape la fel, selecția nu are dintre cine alege, iar media aproape nu se schimbă.</p>
+    <p class="muted" style="font-size:15px">Pentru curioși, formula exactă la selecția proporțională cu evaluarea: fitness-ul mediu al părinților = Σf<sub>i</sub>² / Σf<sub>i</sub> = f̄ + D / f̄, unde f̄ este fitness-ul mediu al populației, iar D este dispersia, măsura diferenței dintre indivizi. D ≥ 0, deci rezultatul nu este mai mic decât f̄.</p>
+    <p class="muted" style="font-size:15px;margin:0" id="dsThm"></p>
+  </div>
+
+  <h3>Pasul 3. Formăm perechile</h3>
+  <p>Scriem părinții în ordine și punem în pereche <b>primul cu ultimul, al doilea cu penultimul</b>. Astfel cele două copii ale aceluiași individ ajung în perechi diferite: încrucișarea unui individ cu propria copie nu aduce nimic nou.</p>
+
+  <div class="why"><b>Atenție: evaluarea nu poate fi negativă.</b> Cota p<sub>i</sub> nu poate fi mai mică decât zero. Dacă funcția poate fi negativă, la toate evaluările se adună același număr, astfel încât cea mai mică să devină puțin peste zero: f′ = f − f<sub>min</sub> + ε. Ordinea indivizilor nu se schimbă.</div>
+
+  <div class="quiz" data-answer="c">
+    <div class="qh">Mini-test 4.1</div>
+    <div class="q">N = 4, evaluările indivizilor: 1, 1, 2, 4. Câte locuri primește individul cu f = 4 prin metoda 1?</div>
+    <div class="opts">
+      <button type="button" data-k="a">1</button>
+      <button type="button" data-k="b">4</button>
+      <button type="button" data-k="c">2</button>
+      <button type="button" data-k="d">0.5</button>
+    </div>
+    <div class="ex">f̄ = (1 + 1 + 2 + 4) / 4 = 2, e = 4 / 2 = 2. Partea întreagă 2, partea fracționară lipsește: exact 2 locuri.</div>
+  </div>
+  <div class="quiz" data-answer="d">
+    <div class="qh">Mini-test 4.2</div>
+    <div class="q">Bucățile segmentului: individul 1 — [0; 0.2), individul 2 — [0.2; 0.7), individul 3 — [0.7; 1). Al cui este punctul r = 0.83?</div>
+    <div class="opts">
+      <button type="button" data-k="a">Individul 1</button>
+      <button type="button" data-k="b">Individul 2</button>
+      <button type="button" data-k="c">Al nimănui, 0.83 este mai mare decât 0.7</button>
+      <button type="button" data-k="d">Individul 3</button>
+    </div>
+    <div class="ex">0.83 se află între 0.7 și 1, aceasta este bucata celui de-al treilea individ.</div>
+  </div>
+</section>
+
+<!-- ============ CROSSOVER ============ -->
+<section id="crossover">
+  <div class="eyebrow">§5 · Încrucișare</div>
+  <h2>Încrucișarea: urmașul ia câte o parte de la fiecare părinte</h2>
+  <p>Copilul moștenește o parte din trăsături de la mamă și o parte de la tată. În AG facem același lucru cu cromozomii: urmașul primește începutul șirului de la un părinte, iar sfârșitul de la celălalt.</p>
+  <p>Un exemplu din viață. Un bucătar are un aluat excelent, altul o umplutură excelentă. Dacă unim aluatul primului cu umplutura celui de-al doilea, putem obține o pizza mai bună decât a amândurora. Încrucișarea mizează exact pe un astfel de noroc: „bucățile” bune ale unor soluții diferite se combină într-o soluție și mai bună. Norocul nu apare mereu: uneori se lipesc tocmai bucățile proaste.</p>
+
+  <h3>Cum se face încrucișarea într-un punct</h3>
+  <ol class="cycle">
+    <li><span><b>Luăm o pereche de părinți</b> aleși la pasul de selecție.</span></li>
+    <li><span><b>Decidem dacă are loc încrucișarea.</b> Generăm un r aleator. Dacă r &lt; p<sub>c</sub>, încrucișăm. Altfel urmașii devin copii exacte ale părinților. La p<sub>c</sub> = 0.8 se încrucișează aproximativ 8 perechi din 10.</span></li>
+    <li><span><b>Alegem punctul de tăiere k</b> la întâmplare: între bitul 1 și 2 (k = 1), între 2 și 3 (k = 2) sau între 3 și 4 (k = 3). Tăierea înainte de primul bit sau după ultimul nu are sens: nu va exista schimb.</span></li>
+    <li><span><b>Schimbăm „cozile” între ele.</b> Primul urmaș: începutul primului părinte + sfârșitul celui de-al doilea. Al doilea urmaș invers.</span></li>
+  </ol>
+  <p>Exemplu: părinții <code>0110</code> și <code>0001</code>, k = 3. Tăiem: <code>011|0</code> și <code>000|1</code>. Lipim: <code>011</code> + <code>1</code> = <code>0111</code> și <code>000</code> + <code>0</code> = <code>0000</code>.</p>
+  <div class="formula">A = a₁a₂ | a₃a₄,  B = b₁b₂ | b₃b₄  →  A′ = a₁a₂b₃b₄,  B′ = b₁b₂a₃a₄</div>
+
+  <div class="stand">
+    <div class="stand-title">Stand: apăsați pe biții părinților, mișcați punctul de tăiere</div>
+    <div style="display:grid;gap:22px">
+      <div class="row"><span class="kv" style="width:110px">Părintele A</span><div class="bits" id="pA"></div><span class="kv muted" id="pAf"></span></div>
+      <div class="row"><span class="kv" style="width:110px">Părintele B</span><div class="bits" id="pB"></div><span class="kv muted" id="pBf"></span></div>
+      <div class="row"><label class="ctl" style="flex-direction:row;align-items:center;gap:10px" for="cutPt">Punctul de încrucișare k = <b id="cutVal" class="kv">3</b><input type="range" id="cutPt" min="1" max="3" value="3"></label></div>
+      <div class="row"><span class="kv" style="width:110px">Urmașul 1</span><div class="bits" id="cA"></div><span class="kv muted" id="cAf"></span></div>
+      <div class="row"><span class="kv" style="width:110px">Urmașul 2</span><div class="bits" id="cB"></div><span class="kv muted" id="cBf"></span></div>
+      <div class="row"><button class="btn ghost" type="button" id="coinBtn">Aruncă „moneda” cu p<sub>c</sub> = 0.8</button><span class="kv" id="coinOut"></span></div>
+    </div>
+  </div>
+  <div class="why"><b>De ce e nevoie de încrucișare.</b> Ea combină fragmentele reușite ale unor soluții diferite. Părinții <code>0110</code> și <code>0001</code> nu sunt cei mai buni, dar la k = 3 încrucișarea lor dă <code>0111</code>, maximul global pe grilă. Încercați pe stand k = 1 și k = 2: acolo nu există un asemenea noroc.</div>
+  <p><b>De ce să nu încrucișăm mereu (p<sub>c</sub> = 1)?</b> Încrucișarea poate și strica o soluție bună, tăind-o nefericit. Dacă o parte din perechi trec în generația următoare fără modificări, indivizii buni se păstrează mai des. Iar la p<sub>c</sub> = 0 combinații noi nu apar deloc, decât prin mutație.</p>
+  <div class="quiz" data-answer="a">
+    <div class="qh">Mini-test 5.1</div>
+    <div class="q">Părinții <code>1100</code> și <code>0011</code>, punctul de încrucișare k = 1. Care sunt urmașii?</div>
+    <div class="opts">
+      <button type="button" data-k="a"><code>1011</code> și <code>0100</code></button>
+      <button type="button" data-k="b"><code>1111</code> și <code>0000</code></button>
+      <button type="button" data-k="c"><code>1100</code> și <code>0011</code></button>
+      <button type="button" data-k="d"><code>1001</code> și <code>0110</code></button>
+    </div>
+    <div class="ex">1 | 100 și 0 | 011 → 1 + 011 = <code>1011</code>, 0 + 100 = <code>0100</code>. Varianta „b” s-ar obține la k = 2.</div>
+  </div>
+</section>
+
+<!-- ============ MUTATION ============ -->
+<section id="mutation">
+  <div class="eyebrow">§6 · Mutație</div>
+  <h2>Mutația: o „greșeală de tipar” aleatoare în gene</h2>
+  <p>Când copiezi un text de mână, uneori apar greșeli de tipar. De obicei strică, dar foarte rar iese întâmplător un cuvânt mai reușit decât originalul. În natură așa apar trăsături noi, pe care nu le-a avut niciun strămoș. În AG, mutația este înlocuirea aleatoare a unui bit cu opusul lui.</p>
+
+  <h3>De ce mutație, dacă avem încrucișare</h3>
+  <p>Încrucișarea doar rearanjează ce există deja în populație. Fie populația: <code>0110</code>, <code>0011</code>, <code>0101</code>, <code>0001</code>. Toți au primul bit 0. Oricum i-am încrucișa, primul bit al urmașilor va fi tot 0, iar jumătate din toate variantele (de la <code>1000</code> la <code>1111</code>, adică x ≥ 0.53) va rămâne pentru totdeauna neverificată. Mutația poate schimba acest bit și deschide o zonă nouă.</p>
+
+  <h3>Cum funcționează</h3>
+  <ol class="cycle">
+    <li><span><b>Parcurgem fiecare bit al fiecărui urmaș.</b> La N = 4 și L = 4 sunt 16 biți.</span></li>
+    <li><span><b>Pentru fiecare bit generăm un r aleator</b> între 0 și 1.</span></li>
+    <li><span><b>Dacă r &lt; p<sub>m</sub>, bitul se schimbă</b> în opusul lui: 0 → 1 sau 1 → 0. Altfel bitul rămâne cum era.</span></li>
+  </ol>
+  <p>Valoarea p<sub>m</sub> = 0.05 înseamnă „în medie se schimbă 1 bit din 20”. În total sunt N · L biți, fiecare mutează cu probabilitatea p<sub>m</sub>, deci numărul mediu de mutații pe generație este:</p>
+  <div class="formula">numărul așteptat de mutații = N · L · p<sub>m</sub>    (la N = 4, L = 4, p<sub>m</sub> = 0.05 este 0.8)</div>
+  <p>Adică, în medie, mai puțin de o mutație pe toată generația. În unele generații nu vor fi mutații, în altele vor fi una-două.</p>
+  <div class="stand">
+    <div class="stand-title">Stand: mutația cromozomului</div>
+    <div class="row" style="gap:24px">
+      <div class="bits" id="mBits" style="margin-top:22px"></div>
+      <label class="ctl" for="pmR">p<sub>m</sub> = <b id="pmVal" class="kv">0.25</b><input type="range" id="pmR" min="0" max="1" step="0.01" value="0.25"></label>
+      <button class="btn" type="button" id="mutBtn">Aplică mutația</button>
+    </div>
+    <div class="kv" id="mutR" style="margin-top:12px"></div>
+    <pre class="log" id="mutLog" style="margin-top:10px;max-height:150px">Aici vor apărea mesaje de tipul „Mutație la individul nr. 1, bitul 3 schimbat din 0 în 1”</pre>
+  </div>
+  <div class="why"><b>Câtă mutație e nevoie.</b> Prea puțină: populația devine identică și se blochează. Prea multă: urmașii aproape nu seamănă cu părinții, soluțiile bune se strică mereu, iar căutarea devine ghicire la întâmplare. De aceea p<sub>m</sub> se ia de obicei mic. Se folosește des regula p<sub>m</sub> ≈ 1/L, adică aproximativ o mutație pe cromozom.</div>
+  <div class="quiz" data-answer="c">
+    <div class="qh">Mini-test 6.1</div>
+    <div class="q">N = 10, L = 4, p<sub>m</sub> = 0.05. Câți biți mutează în medie într-o generație?</div>
+    <div class="opts">
+      <button type="button" data-k="a">0.05</button>
+      <button type="button" data-k="b">0.5</button>
+      <button type="button" data-k="c">2</button>
+      <button type="button" data-k="d">10</button>
+    </div>
+    <div class="ex">În total 10 · 4 = 40 de biți, fiecare mutează cu probabilitatea 0.05: 40 · 0.05 = 2. Răspunsul 0.5 se obține dacă înmulțim p<sub>m</sub> cu N și uităm de L.</div>
+  </div>
+</section>
+
+<!-- ============ EXAMPLE ============ -->
+<section id="example">
+  <div class="eyebrow">§7 · Exemplu rezolvat</div>
+  <h2>O trecere de mână, după formule: f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1</h2>
+  <p>Parametri: <span class="chip">N = 4</span> <span class="chip">L = 4</span> <span class="chip">p<sub>c</sub> = 0.8</span> <span class="chip">p<sub>m</sub> = 0.05</span>. Părinții îi alegem după formula numărului așteptat de copii, iar numerele aleatoare pentru încrucișare și mutație sunt date în enunț. Astfel rezultatul poate fi repetat pe hârtie. Mergeți pas cu pas: fiecare are o formulă, un calcul și o explicație de ce este necesar.</p>
+  <div class="stand" id="exStand">
+    <div class="steps-nav" id="stepsNav"></div>
+    <div id="steps"></div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn ghost" type="button" id="stepPrev">← Înapoi</button>
+      <button class="btn" type="button" id="stepNext">Pasul următor →</button>
+      <button class="btn ghost" type="button" id="stepAll">Arată toți pașii</button>
+    </div>
+  </div>
+
+  <h3>Problemă de autoverificare: încrucișarea în a doua trecere</h3>
+  <p>În a doua trecere părinți sunt toți cei patru indivizi, câte o dată: <code>0111</code>, <code>0000</code>, <code>0110</code>, <code>1111</code>. După regula „primul cu ultimul, al doilea cu penultimul”, perechea 2 este <code>0000</code> și <code>0110</code>. Pentru ea r = 0.27 &lt; 0.8, punctul k = 2, mutații nu sunt. Scrieți urmașii.</p>
+  <div class="stand">
+    <div class="row">
+      <label class="ctl" for="ans1">Urmașul 1<input class="txt answer-in" id="ans1" maxlength="4" placeholder="0000" autocomplete="off"></label>
+      <label class="ctl" for="ans2">Urmașul 2<input class="txt answer-in" id="ans2" maxlength="4" placeholder="0000" autocomplete="off"></label>
+      <button class="btn" type="button" id="ansBtn" style="align-self:flex-end">Verifică</button>
+      <span class="fb" id="ansFb" style="align-self:flex-end"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FULL RUN ============ -->
+<section id="fullrun">
+  <div class="eyebrow">§7 (continuare) · Rulare completă</div>
+  <h2>Toate cele 30 de generații: rezolvăm varianta 1 până la capăt</h2>
+  <p>Acum parcurgem întreaga rulare de 30 de treceri: <span class="chip">N = 4</span> <span class="chip">L = 4</span> <span class="chip">p<sub>c</sub> = 0.8</span> <span class="chip">p<sub>m</sub> = 0.05</span> <span class="chip">G = 30</span> <span class="chip">seed = 80</span> <span class="chip">selecție: metoda 1</span> <span class="chip">fără elitism</span>. Răsfoiți generațiile. Pentru fiecare se văd populația pe grafic, părinții aleși, punctele de încrucișare, mutațiile și un comentariu despre ce s-a schimbat și de ce.</p>
+  <p>Părinții în fiecare generație îi alegem prin metoda 1 (partea întreagă + restul), perechile — „primul cu ultimul”. Aleatoare rămân doar deciziile despre încrucișare și mutație. Populația de start este aici nereușită: niciunul dintre cei patru indivizi nu stă lângă vârful principal. Urmăriți cum își face algoritmul drum spre el.</p>
+  <div class="stand">
+    <div class="row" style="justify-content:space-between">
+      <div class="row" style="gap:6px">
+        <button class="btn ghost" type="button" id="frFirst" aria-label="La prima generație">⏮</button>
+        <button class="btn ghost" type="button" id="frPrev">← Înapoi</button>
+        <button class="btn" type="button" id="frPlay">▶ Redă</button>
+        <button class="btn ghost" type="button" id="frNext">Înainte →</button>
+        <button class="btn ghost" type="button" id="frLast" aria-label="La ultima generație">⏭</button>
+      </div>
+      <label class="ctl" for="frSlider" style="flex-direction:row;align-items:center;gap:10px;min-width:0"><b class="kv" id="frGen">Generația 1 / 30</b><input type="range" id="frSlider" min="1" max="30" value="1"></label>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <canvas class="plot" id="frPlot" aria-label="Populația generației curente pe graficul funcției"></canvas>
+        <div class="legend"><span><i style="background:var(--accent)"></i>generația curentă (mărimea = numărul de copii)</span><span><i style="background:var(--muted)"></i>cercuri: generația precedentă</span></div>
+      </div>
+      <div>
+        <div class="tbl-wrap"><table id="frPop"></table></div>
+        <p class="kv" id="frStats" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <div class="why" id="frNote" style="margin-top:14px"></div>
+    <h3 id="frOpsTitle">Operatori: cum se obține generația următoare</h3>
+    <div id="frOps"></div>
+    <p class="muted" style="font-size:14px;margin:14px 0 4px">Statistica pe generații, linia punctată — generația curentă</p>
+    <canvas class="plot" id="frChart" style="height:200px"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>fitness maxim</span>
+      <span><i style="background:var(--accent-2)"></i>mediu</span>
+      <span><i style="background:var(--muted)"></i>minim</span>
+      <span><i style="background:var(--s3)"></i>cel mai bun din toată rularea</span>
+    </div>
+    <details class="think" style="margin-bottom:0"><summary>Jurnalul text al acestei generații</summary><pre class="log" id="frLog" style="margin-top:10px"></pre></details>
+  </div>
+</section>
+
+<!-- ============ SIMULATOR ============ -->
+<section id="sim">
+  <div class="eyebrow">§8 · Simulator</div>
+  <h2>Rulăm algoritmul în întregime</h2>
+  <p>Aici este asamblat AG complet: selecție după formulă (metoda 1 sau 2, cu deplasare când f e negativă), încrucișare într-un punct și mutație bit cu bit. Puteți seta parametrii, alege funcția sau introduce una proprie. Jurnalul este generat automat de program: pentru fiecare generație se văd populația, selecția, perechile, încrucișarea și mutațiile.</p>
+  <div class="stand">
+    <div class="stand-title">Parametri</div>
+    <div class="row" style="align-items:flex-end">
+      <label class="ctl" for="sN">N (2–20)<input type="number" id="sN" min="2" max="20" value="4"></label>
+      <label class="ctl" for="sPc">p<sub>c</sub> (0–1)<input type="number" id="sPc" min="0" max="1" step="0.05" value="0.8"></label>
+      <label class="ctl" for="sPm">p<sub>m</sub> (0–1)<input type="number" id="sPm" min="0" max="1" step="0.01" value="0.05"></label>
+      <label class="ctl" for="sG">G (≥ 30)<input type="number" id="sG" min="30" max="500" value="30"></label>
+      <label class="ctl" for="sSeed">seed<input type="number" id="sSeed" value="7"></label>
+      <label class="ctl" for="sL">L<input type="number" id="sL" value="4" disabled title="Lungimea cromozomului este fixă"></label>
+    </div>
+    <div class="row" style="align-items:flex-end;margin-top:12px">
+      <label class="ctl" for="sF" style="min-width:280px">Funcția
+        <select id="sF">
+          <option value="0">Exemplul cursului (varianta 1): x·sin(6πx) + 0.5cos(4πx) + 1</option>
+          <option value="1">Demo: 1 + 0.5(1−x)·sin(5πx) + 0.4x (vârfuri aproape egale)</option>
+          <option value="2">Demo: 0.6·sin(3πx) + x (are f &lt; 0)</option>
+          <option value="custom">Formulă proprie…</option>
+        </select>
+      </label>
+      <label class="ctl" for="sExpr" id="exprWrap" style="display:none;min-width:260px">f(x) =<input class="txt" id="sExpr" value="exp(-x)*sin(5*pi*x)"></label>
+      <label class="ctl" for="sSel">Selecție<select id="sSel"><option value="copies">Metoda 1: partea întreagă + restul</option><option value="sus">Metoda 2: pas egal</option></select></label>
+      <label class="ctl" for="sElite" style="flex-direction:row;align-items:center;gap:6px;min-width:0"><input type="checkbox" id="sElite"> elitism</label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" type="button" id="runBtn">Pornește</button>
+      <span class="muted" style="font-size:14px">Seturi gata făcute:</span>
+      <button class="btn ghost" type="button" data-preset="0.8,0.05">Exp. 1: 0.8 / 0.05</button>
+      <button class="btn ghost" type="button" data-preset="0.4,0.01">Exp. 2: 0.4 / 0.01</button>
+      <button class="btn ghost" type="button" data-preset="0.9,0.15">Exp. 3: 0.9 / 0.15</button>
+    </div>
+    <p class="fb no" id="simErr" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="result" id="simResult"></div>
+  <canvas class="plot" id="simChart" style="height:260px" aria-label="Graficul fitness-ului pe generații"></canvas>
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>fitness maxim</span>
+    <span><i style="background:var(--accent-2)"></i>mediu</span>
+    <span><i style="background:var(--muted)"></i>minim</span>
+    <span><i style="background:var(--s3)"></i>cel mai bun din toată rularea</span>
+  </div>
+  <div class="tabs" role="tablist">
+    <button type="button" class="on" data-tab="tLog">Jurnalul generațiilor</button>
+    <button type="button" data-tab="tEvo">Tabelul evoluției</button>
+    <button type="button" data-tab="tStat">Statistica generațiilor</button>
+    <button type="button" data-tab="tPlot">Populația pe graficul f(x)</button>
+  </div>
+  <div class="tabpane on" id="tLog">
+    <div class="row" style="margin-bottom:8px"><button class="btn ghost" type="button" id="copyLog">Copiază jurnalul</button><span class="muted" id="copyFb" style="font-size:14px"></span></div>
+    <pre class="log" id="simLog"></pre>
+  </div>
+  <div class="tabpane" id="tEvo"><div class="tbl-scroll"><table id="evoTable"></table></div></div>
+  <div class="tabpane" id="tStat"><div class="tbl-scroll"><table id="statTable"></table></div></div>
+  <div class="tabpane" id="tPlot">
+    <div class="row"><label class="ctl" for="genSlider" style="flex-direction:row;align-items:center;gap:10px">Generația <b class="kv" id="genVal">1</b><input type="range" id="genSlider" min="1" max="30" value="1"></label><button class="btn ghost" type="button" id="genPlay">▶ Redă</button></div>
+    <canvas class="plot" id="genPlot" style="height:240px"></canvas>
+  </div>
+</section>
+
+<!-- ============ EXPERIMENTS ============ -->
+<section id="experiments">
+  <div class="eyebrow">§9 · Experimente</div>
+  <h2>Cum influențează p<sub>c</sub> și p<sub>m</sub> convergența</h2>
+  <p>O singură rulare a AG este o singură poveste aleatoare, iar după ea nu putem judeca parametrii. Un experiment corect înseamnă multe rulări cu seed-uri diferite și medierea rezultatelor. Mai jos fiecare configurație este rulată de 300 de ori pe funcția din exemplu.</p>
+  <div class="stand">
+    <div class="stand-title">Configurații (pot fi modificate)</div>
+    <div class="tbl-wrap"><table id="cfgTable"></table></div>
+    <div class="row" style="margin-top:12px">
+      <label class="ctl" for="eSel">Selecție<select id="eSel"><option value="copies">Metoda 1</option><option value="sus">Metoda 2</option></select></label>
+      <label class="ctl" for="eElite" style="flex-direction:row;align-items:center;gap:6px;min-width:0"><input type="checkbox" id="eElite"> elitism</label>
+      <button class="btn" type="button" id="expBtn">Efectuează experimentele</button>
+    </div>
+  </div>
+  <div class="grid2">
+    <div><p class="muted" style="font-size:14px;margin:0">Procentul rulărilor în care maximul global (0111) a fost deja găsit, %</p><canvas class="plot" id="expChart1"></canvas></div>
+    <div><p class="muted" style="font-size:14px;margin:0">Fitness-ul mediu al populației (mediat pe rulări)</p><canvas class="plot" id="expChart2"></canvas></div>
+  </div>
+  <div class="legend" id="expLegend"></div>
+  <div class="tbl-wrap" style="margin-top:14px"><table id="expTable"></table></div>
+
+  <h3>Cum citim rezultatele</h3>
+  <div class="why"><b>p<sub>c</sub> și p<sub>m</sub> mici (0.4 / 0.01).</b> Apar puține combinații noi, iar populația rămâne mult timp lângă primul vârf găsit. Aceasta este <i>convergența prematură</i>: algoritmul se „blochează” mai des decât celelalte într-un punct greșit, de exemplu pe <code>0110</code> (f = 1.535) sau la capetele <code>0000</code> și <code>1111</code> (f = 1.5), deși maximul <code>0111</code> dă 1.731. Comparați în tabel procentul rulărilor care au găsit maximul.</div>
+  <div class="why"><b>Mutație mare (0.9 / 0.15).</b> Circa 2.4 mutații pe generație la 16 biți: algoritmul explorează mult și găsește maximul mai des. Dar fitness-ul mediu „face zgomot”, iar cel mai bun individ poate dispărea în generația următoare. Se vede din diferența dintre „cel mai bun din toată rularea” și „cel mai bun din ultima generație”.</div>
+  <div class="why"><b>Valori moderate (0.8 / 0.05).</b> Un compromis între explorare (exploration) și folosirea a ceea ce s-a găsit (exploitation). Activați elitismul și comparați: el păstrează cel mai bun individ și face curba maximului monotonă.</div>
+  <details class="think">
+    <summary>Gândiți-vă: de ce la N = 4 rezultatele depind atât de mult de seed?</summary>
+    <p>Patru indivizi acoperă cel mult 4 din 16 puncte. O singură încrucișare nereușită sau o singură mutație schimbă un sfert din populație, iar drumul algoritmului depinde mult de numerele aleatoare. Măriți N la 10–20 în tabelul configurațiilor: indivizi mai mulți, puncte acoperite mai multe, iar împrăștierea rezultatelor va scădea.</p>
+  </details>
+</section>
+
+<!-- ============ TEST ============ -->
+<section id="test">
+  <div class="eyebrow">§10 · Test final</div>
+  <h2>Verificați-vă: 10 întrebări</h2>
+  <p>Se punctează doar prima încercare. Explicația apare imediat după alegere.</p>
+  <div id="finalQuiz"></div>
+  <div class="final-score" id="finalScore">Răspunsuri date: 0 din 10</div>
+  <button class="btn ghost" type="button" id="resetTest" style="margin-top:10px">Reia testul</button>
+</section>
+
+</main>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const L=4, B=15;
+const fmt=(v,d=4)=>Number.isFinite(v)?v.toFixed(d):'—';
+const toBits=b=>b.toString(2).padStart(L,'0');
+const fA=x=>x*Math.sin(6*Math.PI*x)+0.5*Math.cos(4*Math.PI*x)+1;
+const F_TXT='x·sin(6πx) + 0.5·cos(4πx) + 1';
+function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
+const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function setup(c){const dpr=window.devicePixelRatio||1;const w=c.clientWidth||600,h=c.clientHeight||220;c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return{ctx,w,h};}
+function bitsHTML(s,cls='',sm=false){return '<span class="bits">'+[...s].map(c=>`<span class="bit ${sm?'sm':''} ${cls} ${c==='1'?'one':''}">${c}</span>`).join('')+'</span>';}
+function bitsSm(s,cls=''){return bitsHTML(s,cls,true);}
+
+/* ---------- function plot ---------- */
+function drawFunction(c,f,marks=[],opt={}){
+  const {ctx,w,h}=setup(c);
+  const pad={l:44,r:14,t:14,b:26};
+  const ys=[];for(let i=0;i<=400;i++)ys.push(f(i/400));
+  for(let b=0;b<=B;b++)ys.push(f(b/B));
+  let ymin=Math.min(...ys),ymax=Math.max(...ys);const d=(ymax-ymin)||1;ymin-=d*.08;ymax+=d*.14;
+  const X=x=>pad.l+x*(w-pad.l-pad.r),Y=y=>h-pad.b-(y-ymin)/(ymax-ymin)*(h-pad.t-pad.b);
+  ctx.clearRect(0,0,w,h);
+  ctx.font='11px '+css('--font-mono');ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const yv=ymin+(ymax-ymin)*i/4,yy=Y(yv);ctx.strokeStyle=css('--rule');ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.fillStyle=css('--muted');ctx.textAlign='right';ctx.fillText(yv.toFixed(2),pad.l-6,yy+4);}
+  ctx.textAlign='center';[0,.25,.5,.75,1].forEach(xv=>ctx.fillText(String(xv),X(xv),h-8));
+  ctx.strokeStyle=css('--ink');ctx.globalAlpha=.55;ctx.lineWidth=1.6;ctx.beginPath();
+  for(let i=0;i<=400;i++){const x=i/400;i?ctx.lineTo(X(x),Y(f(x))):ctx.moveTo(X(x),Y(f(x)));}
+  ctx.stroke();ctx.globalAlpha=1;
+  ctx.fillStyle=css('--muted');
+  for(let b=0;b<=B;b++){ctx.beginPath();ctx.arc(X(b/B),Y(f(b/B)),2.6,0,7);ctx.fill();}
+  marks.forEach(m=>{
+    const x=m.x!==undefined?m.x:m.b/B, y=m.y!==undefined?m.y:f(x);
+    ctx.beginPath();ctx.arc(X(x),Y(y),m.r||7,0,7);
+    if(m.hollow){ctx.strokeStyle=m.color||css('--accent');ctx.lineWidth=2;ctx.stroke();}
+    else{ctx.fillStyle=m.color||css('--accent');ctx.globalAlpha=m.alpha||.9;ctx.fill();ctx.globalAlpha=1;}
+    if(m.label){ctx.fillStyle=css('--ink');ctx.font='600 11px '+css('--font-mono');const tw=ctx.measureText(m.label).width;const lx=Math.min(Math.max(X(x),pad.l+tw/2),w-pad.r-tw/2);ctx.textAlign='center';ctx.fillText(m.label,lx,Y(y)-(m.r||7)-5);}
+  });
+  return {X,Y};
+}
+
+/* ---------- line chart ---------- */
+function drawLines(c,series,opt={}){
+  const {ctx,w,h}=setup(c);
+  const pad={l:48,r:14,t:12,b:28};
+  const n=Math.max(...series.map(s=>s.values.length));
+  let all=series.flatMap(s=>s.values).filter(Number.isFinite);
+  let ymin=opt.ymin!==undefined?opt.ymin:Math.min(...all), ymax=opt.ymax!==undefined?opt.ymax:Math.max(...all);
+  if(opt.ymin===undefined){const d=(ymax-ymin)||1;ymin-=d*.06;ymax+=d*.06;}
+  const X=i=>pad.l+(n<=1?0:i/(n-1))*(w-pad.l-pad.r),Y=y=>h-pad.b-(y-ymin)/(ymax-ymin||1)*(h-pad.t-pad.b);
+  ctx.clearRect(0,0,w,h);ctx.font='11px '+css('--font-mono');ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const yv=ymin+(ymax-ymin)*i/4,yy=Y(yv);ctx.strokeStyle=css('--rule');ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.fillStyle=css('--muted');ctx.textAlign='right';ctx.fillText((opt.yfmt||(v=>v.toFixed(2)))(yv),pad.l-6,yy+4);}
+  ctx.textAlign='center';
+  const step=Math.max(1,Math.ceil(n/8));
+  for(let i=0;i<n;i+=step)ctx.fillText(String(i+1),X(i),h-9);
+  if((n-1)%step)ctx.fillText(String(n),X(n-1),h-9);
+  if(opt.marker!==undefined){ctx.strokeStyle=css('--ink');ctx.globalAlpha=.45;ctx.setLineDash([4,4]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X(opt.marker),pad.t);ctx.lineTo(X(opt.marker),h-pad.b);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;}
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color;ctx.lineWidth=s.width||2;ctx.setLineDash(s.dash||[]);ctx.beginPath();
+    s.values.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.stroke();ctx.setLineDash([]);
+    if(s.area){ctx.lineTo(X(s.values.length-1),Y(ymin));ctx.lineTo(X(0),Y(ymin));ctx.closePath();ctx.globalAlpha=.08;ctx.fillStyle=s.color;ctx.fill();ctx.globalAlpha=1;}
+    const li=s.values.length-1;ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(X(li),Y(s.values[li]),3.5,0,7);ctx.fill();
+  });
+}
+
+/* ---------- core GA ---------- */
+/* deterministic selection: method 'copies' (integer part + remainder) or 'sus' (equal step) */
+function detSelect(fit,method){
+  const n=fit.length,mn=Math.min(...fit),shift=mn<=0?-mn+1e-3:0,w=fit.map(v=>v+shift),tot=w.reduce((a,b)=>a+b,0),av=tot/n;
+  const p=w.map(v=>v/tot),e=w.map(v=>v/av);
+  let cp;
+  if(method==='sus'){const cum=[];let a=0;p.forEach(v=>{a+=v;cum.push(a);});cp=fit.map(()=>0);for(let j=0;j<n;j++){const r=(j+0.5)/n;let i=cum.findIndex(c=>r<c);if(i<0)i=n-1;cp[i]++;}}
+  else{const fl=e.map(v=>Math.floor(v+1e-9)),fr=e.map((v,i)=>v-fl[i]);let rest=n-fl.reduce((a,b)=>a+b,0);const ord=[...fr.keys()].sort((a,b)=>fr[b]-fr[a]||a-b);cp=fl.slice();for(let k=0;k<rest;k++)cp[ord[k]]++;}
+  const parents=[];cp.forEach((c,i)=>{for(let k=0;k<c;k++)parents.push(i);});
+  return{shift,p,e,cp,parents};
+}
+function runGA({N,pc,pm,G,f,seed,elitism,sel='copies',log=true}){
+  const rnd=mulberry32(seed>>>0);
+  let pop=Array.from({length:N},()=>toBits(Math.floor(rnd()*16)));
+  const gens=[];const out=[];const P=s=>{if(log)out.push(s);};
+  let best={s:pop[0],f:-Infinity,gen:1};
+  for(let g=1;g<=G;g++){
+    const ls=out.length;
+    const xs=pop.map(s=>parseInt(s,2)/B), fit=xs.map(f);
+    let mx=-Infinity,mn=Infinity,sum=0,bi=0;fit.forEach((v,i)=>{if(v>mx){mx=v;bi=i;}if(v<mn)mn=v;sum+=v;});
+    const avg=sum/N;
+    if(mx>best.f)best={s:pop[bi],f:mx,gen:g};
+    gens.push({pop:[...pop],fit,max:mx,min:mn,avg,bestIdx:bi,bestEver:best.f,uniq:new Set(pop).size});
+    if(log){
+      P(`════════ Generația: ${g} ════════`);P('');P('Populația:');
+      pop.forEach((s,i)=>P(`${String(i+1).padStart(2)}. Cromozom: ${s} | Valoare zecimală: ${String(parseInt(s,2)).padStart(2)} | x: ${fmt(xs[i])} | fitness: ${fmt(fit[i])}`));
+      P('');P('Statistica generației:');P(`- Fitness maxim: ${fmt(mx)}  (individul nr. ${bi+1}, ${pop[bi]})`);P(`- Fitness minim: ${fmt(mn)}`);P(`- Fitness mediu: ${fmt(avg)}`);
+    }
+    if(g===G){P('');P('Ultima generație: operatorii nu se aplică.');gens[g-1].log=out.slice(ls).join('\n');break;}
+    const ds=detSelect(fit,sel),par=ds.parents;
+    const kids=[];let pairNo=0;const cur=gens[gens.length-1];cur.pairs=[];cur.muts=[];cur.p=ds.p;cur.e=ds.e;cur.cp=ds.cp;cur.shift=ds.shift;
+    if(log){P('');P(`Selecție (${sel==='sus'?'metoda 2: pas egal r_j = (j − 0.5)/N':'metoda 1: partea întreagă + restul'}${ds.shift?`; fitness deplasat cu +${fmt(ds.shift)}, deoarece există f ≤ 0`:''}):`);
+      P('  e = f / f̄ = ['+ds.e.map(v=>fmt(v,3)).join(', ')+']');
+      P('  locuri = ['+ds.cp.join(', ')+'] → părinți: '+par.map(i=>pop[i]).join(', '));
+      P('  perechi: primul cu ultimul, al doilea cu penultimul');}
+    for(let q=0;kids.length<N;q++){
+      pairNo++;const ia=par[q],ib=(N-1-q!==q)?par[N-1-q]:par[0];
+      let c1=pop[ia],c2=pop[ib];
+      if(log){P(`- Perechea ${pairNo}: Părintele 1: individul nr. ${ia+1} (${pop[ia]}); Părintele 2: individul nr. ${ib+1} (${pop[ib]})`);}
+      const rc=rnd();let kk=0;
+      if(rc<pc){const k=kk=1+Math.floor(rnd()*(L-1));c1=pop[ia].slice(0,k)+pop[ib].slice(k);c2=pop[ib].slice(0,k)+pop[ia].slice(k);
+        P(`  Încrucișare: efectuată: da (r=${fmt(rc,3)} < pc=${pc}) | Punctul de încrucișare: ${k} | ${pop[ia].slice(0,k)}|${pop[ia].slice(k)} × ${pop[ib].slice(0,k)}|${pop[ib].slice(k)} → Urmași: ${c1} și ${c2}`);}
+      else P(`  Încrucișare: efectuată: nu (r=${fmt(rc,3)} ≥ pc=${pc}) → urmașii copiază părinții: ${c1} și ${c2}`);
+      cur.pairs.push({ia,ib,rc,cx:rc<pc,k:kk,c1,c2,drop:kids.length+2>N});
+      kids.push(c1);if(kids.length<N)kids.push(c2);else P(`  (N impar: al doilea urmaș ${c2} este eliminat)`);
+    }
+    P('');P(`Mutație (fiecare bit se inversează cu probabilitatea pm=${pm}):`);
+    let mc=0;
+    for(let k=0;k<N;k++){const arr=[...kids[k]];for(let j=0;j<L;j++){if(rnd()<pm){const o=arr[j];arr[j]=o==='1'?'0':'1';mc++;cur.muts.push({k,j,from:o,to:arr[j],before:kids[k]});P(`- Mutație la individul nr. ${k+1}, bitul ${j+1} schimbat din ${o} în ${arr[j]}  (${kids[k]} → ${arr.join('')})`);kids[k]=arr.join('');}}}
+    if(!mc)P('- Nu a avut loc nicio mutație');
+    if(elitism){
+      const elite=pop[bi];if(!kids.includes(elite)){let wi=0,wv=Infinity;kids.forEach((s,i)=>{const v=f(parseInt(s,2)/B);if(v<wv){wv=v;wi=i;}});P(`Elitism: cel mai bun individ ${elite} a fost transferat în locul individului nr. ${wi+1} (${kids[wi]})`);cur.elite={s:elite,idx:wi,old:kids[wi]};kids[wi]=elite;}
+      else P('Elitism: cel mai bun individ există deja printre urmași');
+    }
+    P('');P('Generația nouă: '+kids.join(', '));P('');
+    cur.next=[...kids];cur.log=out.slice(ls).join('\n');
+    pop=kids;
+  }
+  return {gens,best,log:out.join('\n')};
+}
+
+/* ---------- score ---------- */
+let scoreOk=0,scoreAll=0;
+function updScore(){$('#scoreOk').textContent=scoreOk;$('#scoreAll').textContent=scoreAll;}
+function bindQuiz(q,onDone){
+  const ans=q.dataset.answer;const btns=q.querySelectorAll('.opts button');const ex=q.querySelector('.ex');
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    if(q.dataset.done)return;q.dataset.done='1';
+    const ok=b.dataset.k===ans;btns.forEach(x=>{x.disabled=true;if(x.dataset.k===ans)x.classList.add('right');});
+    if(!ok)b.classList.add('wrong');
+    ex.innerHTML=(ok?'<b class="ok">Corect.</b> ':'<b class="no">Nu chiar.</b> ')+ex.innerHTML;ex.classList.add('show');
+    scoreAll++;if(ok)scoreOk++;updScore();if(onDone)onDone(ok);
+  }));
+}
+$$('section:not(#test) .quiz').forEach(q=>bindQuiz(q));
+
+/* ---------- hero animation ---------- */
+const hero=$('#heroCanvas');let heroState;
+function heroInit(){const r=mulberry32(Math.floor(Math.random()*1e9));heroState={rnd:r,pop:Array.from({length:6},()=>Math.floor(r()*16)),prev:null,t:1,gen:1,stable:0};}
+function heroStep(){
+  const s=heroState,r=s.rnd,f=b=>fA(b/B);const fit=s.pop.map(f),tot=fit.reduce((a,b)=>a+b,0);
+  const pick=()=>{let x=r()*tot;for(let i=0;i<6;i++){x-=fit[i];if(x<0)return s.pop[i];}return s.pop[5];};
+  const bi=fit.indexOf(Math.max(...fit));const kids=[s.pop[bi]];
+  while(kids.length<6){let a=toBits(pick()),b=toBits(pick());if(r()<.8){const k=1+Math.floor(r()*3);[a,b]=[a.slice(0,k)+b.slice(k),b.slice(0,k)+a.slice(k)];}
+    kids.push(a,b);}
+  const np=kids.slice(0,6).map((c,i)=>{if(i===0)return c;return [...(typeof c==='number'?toBits(c):c)].map(ch=>r()<.08?(ch==='1'?'0':'1'):ch).join('');}).map(c=>typeof c==='number'?c:parseInt(c,2));
+  s.prev=s.pop;s.pop=np;s.t=0;s.gen++;
+  if(new Set(np).size<=2)s.stable++;else s.stable=0;
+  if(s.stable>5)heroInit();
+}
+function heroDraw(){
+  const s=heroState,e=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,k=e(Math.min(1,s.t));
+  const pal=[css('--accent'),css('--accent-2'),css('--s3'),css('--good'),css('--accent'),css('--accent-2')];
+  const marks=s.pop.map((b,i)=>{const x1=b/B,x0=s.prev?s.prev[i]/B:x1;const x=x0+(x1-x0)*k;const y=fA(x0)+(fA(x1)-fA(x0))*k;return{x,y,color:pal[i],r:7,alpha:.8};});
+  drawFunction(hero,fA,marks);
+  const best=Math.max(...s.pop.map(b=>fA(b/B)));
+  $('#heroGen').textContent='Generația '+s.gen;$('#heroBest').textContent='cel mai bun f = '+fmt(best,3)+' (maximul pe grilă '+fmt(Math.max(...Array.from({length:16},(_,b)=>fA(b/B))),3)+')';
+}
+heroInit();
+let lastT=0,acc=0;
+function heroLoop(ts){if(!lastT)lastT=ts;const dt=ts-lastT;lastT=ts;acc+=dt;heroState.t+=dt/700;if(acc>1500){acc=0;heroStep();}heroDraw();requestAnimationFrame(heroLoop);}
+if(reduceMotion){heroDraw();}else requestAnimationFrame(heroLoop);
+$('#heroRestart').addEventListener('click',()=>{heroInit();heroDraw();if(reduceMotion){for(let i=0;i<8;i++){}}});
+if(reduceMotion){hero.addEventListener('click',()=>{heroStep();heroState.t=1;heroDraw();});}
+
+/* ---------- why: brute force + hill climber ---------- */
+(function(){
+  function human(ms){
+    const s=ms/1000;if(s<1)return (ms).toFixed(0)+' ms';if(s<60)return s.toFixed(1)+' s';
+    const m=s/60;if(m<60)return m.toFixed(1)+' min';const h=m/60;if(h<24)return h.toFixed(1)+' h';
+    const d=h/24;if(d<365)return d.toFixed(1)+' zile';const y=d/365.25;
+    if(y<1e6)return Math.round(y).toLocaleString('ro-RO')+' ani';
+    const e=Math.floor(Math.log10(y));return (y/10**e).toFixed(1)+'·10^'+e+' ani';
+  }
+  function upd(){
+    const Lb=+$('#bfL').value;$('#bfLv').textContent=Lb;
+    const n=2n**BigInt(Lb);const ms=Math.pow(2,Lb);const years=ms/1000/3600/24/365.25;
+    let cmp='';
+    if(Lb<=10)cmp='instantaneu';else if(years<1/365.25)cmp='se poate aștepta';else if(years<80)cmp='mai mult decât vrem să așteptăm';else if(years<1.38e10)cmp='mai mult decât o viață de om';else cmp='mai mult decât vârsta Universului (≈ 1.4·10^10 ani)';
+    $('#bfOut').innerHTML=`<div><div class="k">Variante 2<sup>${Lb}</sup></div><div class="v">${n.toLocaleString('ro-RO')}</div></div><div><div class="k">Timpul căutării</div><div class="v">${human(ms)}</div></div><div><div class="k">Concluzie</div><div class="v" style="font-size:16px">${cmp}</div></div>`;
+  }
+  $('#bfL').addEventListener('input',upd);upd();
+
+  const fv=Array.from({length:16},(_,b)=>fA(b/B)),gB=fv.indexOf(Math.max(...fv));
+  const climb=b=>{const path=[b];for(;;){const c=path[path.length-1];let nb=c;[c-1,c+1].forEach(n=>{if(n>=0&&n<=15&&fv[n]>fv[nb])nb=n;});if(nb===c)break;path.push(nb);}return path;};
+  let path=null,step=0,timer=null,allMode=null;
+  function draw(){
+    let marks=[];
+    if(allMode){allMode.forEach(([st,en])=>marks.push({b:st,r:5,color:en===gB?css('--good'):css('--bad'),alpha:.85}));marks.push({b:gB,r:9,hollow:true,color:css('--good'),label:'global'});}
+    else if(path){path.slice(0,step+1).forEach((b,i)=>marks.push({b,r:i===step?9:4,color:i===step?css('--accent-2'):css('--muted'),label:i===step?'turist':undefined}));}
+    drawFunction($('#hcPlot'),fA,marks);
+  }
+  const nm=b=>`<code>${toBits(b)}</code> (x = ${fmt(b/B,3)}, f = ${fmt(fv[b],3)})`;
+  $('#hcStart').addEventListener('click',()=>{
+    clearInterval(timer);allMode=null;const st=Math.floor(Math.random()*16);path=climb(st);step=0;draw();
+    $('#hcOut').innerHTML=`Start: ${nm(st)}. Turistul se uită la vecini și pășește acolo unde e mai sus…`;
+    const fin=()=>{const en=path[path.length-1];const ok=en===gB;
+      $('#hcOut').innerHTML=`Start: ${nm(st)}. Drumul: ${path.map(b=>'<code>'+toBits(b)+'</code>').join(' → ')}. Mai departe, în toate direcțiile e coborâre, iar turistul s-a oprit pe ${nm(en)}. `+(ok?'<span class="chip good">a avut noroc: acesta e maximul global</span>':`<span class="chip bad">blocat într-un maxim local</span> Vârful adevărat: ${nm(gB)}.`);};
+    if(reduceMotion||path.length===1){step=path.length-1;draw();fin();return;}
+    timer=setInterval(()=>{step++;draw();if(step>=path.length-1){clearInterval(timer);fin();}},550);
+  });
+  $('#hcAll').addEventListener('click',()=>{
+    clearInterval(timer);path=null;allMode=[];for(let b=0;b<16;b++)allMode.push([b,climb(b).at(-1)]);draw();
+    const good=allMode.filter(x=>x[1]===gB).length;const traps=[...new Set(allMode.map(x=>x[1]).filter(e=>e!==gB))];
+    $('#hcOut').innerHTML=`Punctele verzi sunt starturile din care turistul a ajuns la maximul global <code>${toBits(gB)}</code>. Cele roșii sunt starturile din care a rămas blocat. Starturi reușite sunt doar <b>${good} din 16</b>. Celelalte se termină în capcane: ${traps.map(nm).join(', ')}.`;
+  });
+  draw();window.__hcRedraw=draw;
+})();
+
+/* ---------- encoding stand ---------- */
+let enc='0111';
+const fvals=Array.from({length:16},(_,b)=>fA(b/B));const gBest=fvals.indexOf(Math.max(...fvals));
+function renderEnc(){
+  $('#encBits').innerHTML=[...enc].map((c,i)=>`<button type="button" class="bit ${c==='1'?'one':''}" data-i="${i}" aria-label="Bitul ${i+1}, valoarea ${c}"><span class="idx">${8>>i}</span>${c}</button>`).join('');
+  const b=parseInt(enc,2),x=b/B;
+  $('#encCalc').innerHTML=`b = ${[...enc].map((c,i)=>`${c}·${8>>i}`).join(' + ')} = <b>${b}</b><br>x = ${b}/15 = <b>${fmt(x)}</b><br>f(x) = ${fmt(x)}·sin(6π·${fmt(x)}) + 0.5·cos(4π·${fmt(x)}) + 1 = <b>${fmt(fA(x))}</b>`;
+  $$('#encBits .bit').forEach(el=>el.addEventListener('click',()=>{const i=+el.dataset.i;const a=[...enc];a[i]=a[i]==='1'?'0':'1';enc=a.join('');renderEnc();}));
+  drawFunction($('#encPlot'),fA,[{b,label:enc}]);
+  $('#tiles').innerHTML=fvals.map((v,i)=>`<button type="button" class="tile ${i===b?'cur':''} ${i===gBest?'top':''}" data-b="${i}"><div class="tb">${toBits(i)}</div>x=${fmt(i/B,3)}<br>f=${fmt(v,3)}</button>`).join('');
+  $$('#tiles .tile').forEach(t=>t.addEventListener('click',()=>{enc=toBits(+t.dataset.b);renderEnc();}));
+}
+renderEnc();
+
+/* ---------- selection bar (method 2) ---------- */
+function segColor(i){return [css('--accent'),css('--accent-2'),css('--s3'),css('--good')][i];}
+function renderBar(){
+  const P=['0100','0110','1011','0001'],m=selMath(P);
+  $('#rbar').innerHTML=P.map((sp,i)=>`<div class="seg" style="width:${m.p[i]*100}%;background:${segColor(i)}">${m.p[i]>.08?'№'+(i+1)+' '+sp:''}</div>`).join('')+m.ptr.map((r,j)=>`<div class="rmark" style="left:${r*100}%"><span>r${j+1} = ${fmt(r,3)}</span></div>`).join('');
+  $('#rscale').innerHTML='<span style="left:0">0</span>'+m.cum.slice(0,-1).map(c=>`<span style="left:${c*100}%">${fmt(c,4)}</span>`).join('')+'<span style="left:100%">1</span>';
+}
+renderBar();
+
+/* ---------- crossover ---------- */
+let pa='0110',pb='0001',cut=3;
+function renderCx(anim){
+  const mk=(s,cls,id)=>{$(id).innerHTML=[...s].map((c,i)=>`<button type="button" class="bit ${cls} ${c==='1'?'one':''}" data-i="${i}" aria-label="Bitul ${i+1}">${c}</button>`).join('');};
+  mk(pa,'','#pA');mk(pb,'b','#pB');
+  $$('#pA .bit').forEach(el=>el.addEventListener('click',()=>{const a=[...pa];a[+el.dataset.i]=a[+el.dataset.i]==='1'?'0':'1';pa=a.join('');renderCx(true);}));
+  $$('#pB .bit').forEach(el=>el.addEventListener('click',()=>{const a=[...pb];a[+el.dataset.i]=a[+el.dataset.i]==='1'?'0':'1';pb=a.join('');renderCx(true);}));
+  // insert cut markers
+  [['#pA'],['#pB']].forEach(([id])=>{const bitsEl=$(id).children;const m=document.createElement('span');m.className='cutline';$(id).insertBefore(m,bitsEl[cut]);});
+  const child=(x,y,clsX,clsY)=>[...x.slice(0,cut)].map((c,i)=>`<span class="bit ${clsX} ${c==='1'?'one':''} ${anim?'pop':''}" style="animation-delay:${i*60}ms">${c}</span>`).join('')+'<span class="cutline"></span>'+[...y.slice(cut)].map((c,i)=>`<span class="bit ${clsY} ${c==='1'?'one':''} ${anim?'pop':''}" style="animation-delay:${(cut+i)*60+120}ms">${c}</span>`).join('');
+  $('#cA').innerHTML=child(pa,pb,'','b');$('#cB').innerHTML=child(pb,pa,'b','');
+  const F=s=>'f = '+fmt(fA(parseInt(s,2)/B),3);
+  const c1=pa.slice(0,cut)+pb.slice(cut),c2=pb.slice(0,cut)+pa.slice(cut);
+  $('#pAf').textContent=F(pa);$('#pBf').textContent=F(pb);$('#cAf').textContent=c1+' · '+F(c1);$('#cBf').textContent=c2+' · '+F(c2);
+}
+$('#cutPt').addEventListener('input',e=>{cut=+e.target.value;$('#cutVal').textContent=cut;renderCx(true);});
+$('#coinBtn').addEventListener('click',()=>{const r=Math.random();$('#coinOut').innerHTML=r<.8?`r = ${fmt(r,3)} &lt; 0.8 → <span class="chip good">încrucișare efectuată</span>`:`r = ${fmt(r,3)} ≥ 0.8 → <span class="chip bad">fără încrucișare, urmașii = copii</span>`;});
+renderCx(false);
+
+/* ---------- mutation ---------- */
+let mchr='0110';
+function renderMut(flips=[]){
+  $('#mBits').innerHTML=[...mchr].map((c,i)=>`<span class="bit ${c==='1'?'one':''} ${flips.includes(i)?'flash':''}"><span class="idx">bit ${i+1}</span>${c}</span>`).join('');
+}
+$('#pmR').addEventListener('input',e=>{$('#pmVal').textContent=(+e.target.value).toFixed(2);});
+let mutLines=[];
+$('#mutBtn').addEventListener('click',()=>{
+  const pm=+$('#pmR').value;const rs=[...mchr].map(()=>Math.random());const a=[...mchr];const flips=[];const before=mchr;
+  rs.forEach((r,i)=>{if(r<pm){const o=a[i];a[i]=o==='1'?'0':'1';flips.push(i);mutLines.unshift(`Mutație la individul nr. 1, bitul ${i+1} schimbat din ${o} în ${a[i]}`);}});
+  if(!flips.length)mutLines.unshift(`Nicio mutație (toate r ≥ ${pm.toFixed(2)})`);
+  mchr=a.join('');renderMut(flips);
+  $('#mutR').innerHTML='r pe biți: '+rs.map((r,i)=>`<span class="chip ${r<pm?'bad':''}">${i+1}: ${r.toFixed(3)}</span>`).join(' ')+`  ${before} → <b>${mchr}</b>`;
+  $('#mutLog').textContent=mutLines.slice(0,12).join('\n');
+});
+renderMut();
+
+/* ---------- selection math helper ---------- */
+function selMath(P){
+  const fx=s=>fA(parseInt(s,2)/B);
+  const F=P.map(fx),n=P.length,S=F.reduce((a,b)=>a+b,0),av=S/n,p=F.map(v=>v/S),e=F.map(v=>v/av);
+  const fl=e.map(v=>Math.floor(v+1e-9)),fr=e.map((v,i)=>v-fl[i]);
+  const rest=n-fl.reduce((a,b)=>a+b,0);
+  const ord=[...fr.keys()].sort((a,b)=>fr[b]-fr[a]||a-b);
+  const extra=P.map(()=>0);for(let k=0;k<rest;k++)extra[ord[k]]++;
+  const cp=fl.map((v,i)=>v+extra[i]);
+  const cum=[];{let a=0;p.forEach(v=>{a+=v;cum.push(a);});}
+  const seg=r=>{const i=cum.findIndex(c=>r<c);return i<0?n-1:i;};
+  const ptr=P.map((_,j)=>(j+0.5)/n),sus=ptr.map(seg);
+  const susCp=P.map((_,i)=>sus.filter(x=>x===i).length);
+  const parents=[];cp.forEach((c,i)=>{for(let k=0;k<c;k++)parents.push(i);});
+  const sq=F.reduce((a,v)=>a+v*v,0),D=sq/n-av*av;
+  return {F,n,S,av,p,e,fl,fr,rest,ord,extra,cp,cum,seg,ptr,sus,susCp,parents,sq,D};
+}
+
+/* ---------- deterministic selection stand ---------- */
+(function(){
+  const P=['0100','0110','1011','0001'],m=selMath(P),f4=v=>fmt(v,4),f3=v=>fmt(v,3);
+  $('#dsTable').innerHTML='<tr><th>Nr.</th><th>Cromozom</th><th class="r">f<sub>i</sub></th><th class="r">p<sub>i</sub> = f<sub>i</sub>/Σf</th><th class="r">e<sub>i</sub> = f<sub>i</sub>/f̄</th><th class="r">⌊e<sub>i</sub>⌋</th><th class="r">partea fracționară</th><th class="r">Metoda 1</th><th class="r">Metoda 2</th></tr>'+
+    P.map((s,i)=>`<tr><td>${i+1}</td><td class="mono">${s}</td><td class="r">${f4(m.F[i])}</td><td class="r">${f4(m.p[i])}</td><td class="r">${f3(m.e[i])}</td><td class="r">${m.fl[i]}</td><td class="r">${f3(m.fr[i])}${m.extra[i]?' <span class="chip good">+1</span>':''}</td><td class="r"><b>${m.cp[i]}</b></td><td class="r"><b>${m.susCp[i]}</b></td></tr>`).join('')+
+    `<tr><td></td><td><b>Suma</b></td><td class="r"><b>${f4(m.S)}</b></td><td class="r"><b>1.0000</b></td><td class="r"><b>${f3(m.e.reduce((a,b)=>a+b,0))}</b></td><td class="r"><b>${m.fl.reduce((a,b)=>a+b,0)}</b></td><td></td><td class="r"><b>4</b></td><td class="r"><b>4</b></td></tr>`;
+  const best=m.ord[0];
+  const bnd=P.map((sp,i)=>`bucata nr. ${i+1} (<code>${sp}</code>): de la ${f4(i?m.cum[i-1]:0)} până la ${f4(i?m.cum[i-1]:0)} + ${f4(m.p[i])} = <b>${f4(m.cum[i])}</b>`).join('<br>');
+  const parts=m.ptr.map((r,j)=>`partea ${j+1}: [${fmt(j/4,2)}; ${fmt((j+1)/4,2)}) → mijlocul <b>${fmt(r,3)}</b>`).join('<br>');
+  const hits=m.ptr.map((r,j)=>{const i=m.sus[j];return `${fmt(r,3)} se află între ${f4(i?m.cum[i-1]:0)} și ${f4(m.cum[i])} → bucata nr. ${i+1} (<code>${P[i]}</code>)`;}).join('<br>');
+  $('#dsText').innerHTML=`<p><b>Metoda 1.</b> f̄ = Σf / N = ${f4(m.S)} / 4 = ${f4(m.av)}. Pentru <code>0110</code>: e = ${f4(m.F[1])} / ${f4(m.av)} = ${f3(m.e[1])}. Părțile întregi dau ${m.fl.join(' + ')} = ${m.fl.reduce((a,b)=>a+b,0)} locuri, rămâne liber 4 − ${m.fl.reduce((a,b)=>a+b,0)} = ${m.rest}. Cea mai mare parte fracționară o are <code>${P[best]}</code> (${f3(m.fr[best])}), el primește locul rămas.</p>
+  <p><b>Metoda 2, pasul a — limitele bucăților.</b> Bucățile le așezăm la rând, fiecare limită = limita precedentă + lungimea bucății următoare:<br>${bnd}</p>
+  <p><b>Pasul b — punctele.</b> Avem nevoie de 4 locuri, de aceea împărțim segmentul în 4 părți egale de câte 0.25 și în fiecare luăm mijlocul. De aici formula r<sub>j</sub> = (j − 0.5) / N:<br>${parts}</p>
+  <p><b>Pasul c — pe bucata cui a căzut fiecare punct.</b><br>${hits}</p>
+  <p>Bucata <code>0110</code> este lungă (${f4(m.p[1])}), pe ea au încăput două puncte. Bucata <code>0100</code> este scurtă (${f4(m.p[0])}) și se termină înainte de primul punct 0.125, de aceea nu a primit niciunul.</p>
+  <p><b>Rezultatul ambelor metode:</b> părinți ${m.parents.map(i=>'<code>'+P[i]+'</code>').join(', ')}.</p>`;
+  const parAvg=m.parents.reduce((a,i)=>a+m.F[i],0)/4;
+  $('#dsThm').innerHTML=`<b>Pe exemplul nostru.</b> Fitness-ul mediu al întregii populații: (${m.F.map(f4).join(' + ')}) / 4 = <b>${f4(m.av)}</b>. Fitness-ul mediu al părinților (metoda 1): (${m.parents.map(i=>f4(m.F[i])).join(' + ')}) / 4 = <b>${f4(parAvg)}</b>. Pe slabul <code>0100</code> l-am eliminat, pe puternicul <code>0110</code> l-am luat de două ori, de aceea ${f4(parAvg)} &gt; ${f4(m.av)}.`;
+})();
+
+/* ---------- worked example ---------- */
+(function(){
+  const N=4,L=4,pc=.8,pm=.05,f4=v=>fmt(v,4),f3=v=>fmt(v,3);
+  const fx=s=>fA(parseInt(s,2)/B);
+  const pop=['0100','0110','1011','0001'];
+  const m=selMath(pop);
+  const par=m.parents.map(i=>pop[i]);
+  const pairs=[[par[0],par[3]],[par[1],par[2]]];
+  const cx=[{r:.35,k:3},{r:.91}];
+  const kids=[],cxi=[];
+  pairs.forEach(([A,Bp],n)=>{if(cx[n].r<pc){const k=cx[n].k,c1=A.slice(0,k)+Bp.slice(k),c2=Bp.slice(0,k)+A.slice(k);kids.push(c1,c2);cxi.push({A,B:Bp,k,yes:true,r:cx[n].r,c:[c1,c2]});}else{kids.push(A,Bp);cxi.push({A,B:Bp,yes:false,r:cx[n].r,c:[A,Bp]});}});
+  const mut={child:3,bit:1,r:.031};const before=kids[mut.child];const arr=[...before];const old=arr[mut.bit];arr[mut.bit]=old==='1'?'0':'1';kids[mut.child]=arr.join('');
+  const nfit=kids.map(fx);
+  const st=a=>({mx:Math.max(...a),mn:Math.min(...a),av:a.reduce((x,y)=>x+y,0)/a.length});
+  const s0=st(m.F),s1=st(nfit);
+  const best1=nfit.indexOf(s1.mx);
+  const allF=Array.from({length:16},(_,b)=>fA(b/B)),gB=allF.indexOf(Math.max(...allF));
+  const m2=selMath(kids);
+  const parAvg=m.parents.reduce((a,i)=>a+m.F[i],0)/N;
+  const decRow=s=>{const g=[...s].map(Number);return `${g[0]}·8 + ${g[1]}·4 + ${g[2]}·2 + ${g[3]}·1 = ${parseInt(s,2)}`;};
+  const popTbl=(P,F,hl)=>'<div class="tbl-wrap"><table><tr><th>Nr.</th><th>Cromozom</th><th class="r">b</th><th class="r">x = b/15</th>'+(F?'<th class="r">f(x)</th>':'')+'</tr>'+P.map((s,i)=>`<tr class="${hl===i?'hl':''}"><td>${i+1}</td><td>${bitsSm(s)}</td><td class="r">${parseInt(s,2)}</td><td class="r">${fmt(parseInt(s,2)/B)}</td>${F?`<td class="r">${fmt(F[i])}</td>`:''}</tr>`).join('')+'</table></div>';
+  const why=(t,h)=>`<div class="why"><b>${t}</b> ${h}</div>`;
+  const bitsCut=(s,k,cls)=>bitsSm(s.slice(0,k),cls)+'<b style="margin:0 4px">|</b>'+bitsSm(s.slice(k),cls);
+
+  const steps=[
+    {t:'0. Enunț și plan',h:`
+      <p><b>Date:</b> f(x) = x·sin(6πx) + 0.5·cos(4πx) + 1, x ∈ [0, 1], N = 4, L = 4, p<sub>c</sub> = 0.8, p<sub>m</sub> = 0.05.</p>
+      <p><b>Căutăm:</b> x* = arg max f(b/15) pentru b = 0…15, adică cromozomul pentru care f este cea mai mare.</p>
+      <p><b>Ce facem în această secțiune:</b> o trecere completă (generația 1 → generația 2) de mână, iar la final, pe scurt, începutul celei de-a doua treceri. În total facem G = 30 de treceri. Fiecare trecere următoare repetă pașii 1–6 cu populația nouă.</p>
+      <p><b>De unde luăm deciziile „aleatoare”:</b></p>
+      <ul>
+        <li>părinții îi alegem <b>după formulă</b> (metodele 1 și 2 din §4), fără întâmplare;</li>
+        <li>dacă are loc încrucișarea, în ce punct și ce biți mutează — aceste numere <b>sunt date în enunț</b>, ca și cum le-ar fi dat generatorul. În program le dă <code>random()</code>.</li>
+      </ul>
+      ${why('De ce fixăm întâmplarea.','Ca fiecare să poată verifica soluția pe hârtie și să obțină aceleași numere. Algoritmul însuși rămâne aleator în program.')}`},
+    {t:'1. Decodificare',h:`
+      <p>Populația de start (de obicei aleatoare): ${pop.map(s=>'<code>'+s+'</code>').join(', ')}.</p>
+      <p>Fiecare bit este o „monedă” cu greutatea 8, 4, 2, 1. Formulele:</p>
+      <div class="formula">b = 8·g₁ + 4·g₂ + 2·g₃ + 1·g₄,    x = b / (2<sup>L</sup> − 1) = b / 15</div>
+      <div class="tbl-wrap"><table><tr><th>Nr.</th><th>Cromozom</th><th>b</th><th class="r">x = b / 15</th></tr>${pop.map((s,i)=>`<tr><td>${i+1}</td><td>${bitsSm(s)}</td><td class="mono">${decRow(s)}</td><td class="r">${parseInt(s,2)}/15 = ${fmt(parseInt(s,2)/B)}</td></tr>`).join('')}</table></div>
+      ${why('De ce acest pas.','Funcția înțelege doar numere, iar operatorii genetici lucrează cu biți. Decodificarea leagă aceste două lumi.')}`},
+    {t:'2. Evaluarea fitness-ului',h:`
+      <p>Înlocuim fiecare x în funcție. Calculăm pe părți, ca să nu greșim:</p>
+      <div class="formula">f(x) = x · sin(6πx) + 0.5 · cos(4πx) + 1</div>
+      <div class="tbl-wrap"><table><tr><th>№</th><th class="r">x</th><th class="r">sin(6πx)</th><th class="r">x·sin(6πx)</th><th class="r">cos(4πx)</th><th class="r">0.5·cos(4πx)</th><th class="r">f(x)</th></tr>${pop.map((s,i)=>{const x=parseInt(s,2)/B,a=Math.sin(6*Math.PI*x),c=Math.cos(4*Math.PI*x);return `<tr class="${i===m.F.indexOf(s0.mx)?'hl':''}"><td>${i+1}</td><td class="r">${f4(x)}</td><td class="r">${f4(a)}</td><td class="r">${f4(x*a)}</td><td class="r">${f4(c)}</td><td class="r">${f4(.5*c)}</td><td class="r"><b>${f4(m.F[i])}</b></td></tr>`;}).join('')}</table></div>
+      <p style="margin-top:12px">Exemplu pentru nr. 2: f(0.4) = 0.4 · ${f4(Math.sin(6*Math.PI*.4))} + 0.5 · ${f4(Math.cos(4*Math.PI*.4))} + 1 = ${f4(.4*Math.sin(6*Math.PI*.4))} + ${f4(.5*Math.cos(4*Math.PI*.4))} + 1 = ${f4(m.F[1])}.</p>
+      <p><b>Statistica generației 1:</b></p>
+      <div class="formula">f<sub>max</sub> = ${f4(s0.mx)},  f<sub>min</sub> = ${f4(s0.mn)},  f̄ = (${m.F.map(f4).join(' + ')}) / 4 = ${f4(m.S)} / 4 = ${f4(s0.av)}</div>
+      ${why('De ce acest pas.','Fitness-ul este singurul lucru pe care algoritmul îl știe despre problemă. Toate deciziile următoare (pe cine încrucișăm) se iau doar după aceste numere.')}`},
+    {t:'3. Selecția părinților',h:`
+      <p><b>3a. Cotele.</b> Σf = ${f4(m.S)}. Cota fiecărui individ p<sub>i</sub> = f<sub>i</sub> / Σf: ${pop.map((s,i)=>`${s}: ${f4(m.F[i])} / ${f4(m.S)} = ${f4(m.p[i])}`).join('; ')}.</p>
+      <p><b>3b. Numărul așteptat de copii</b> e<sub>i</sub> = f<sub>i</sub> / f̄ = f<sub>i</sub> / ${f4(m.av)} (de câte ori individul „merită” să devină părinte):</p>
+      <div class="tbl-wrap"><table><tr><th>Nr.</th><th>Cromozom</th><th class="r">e<sub>i</sub></th><th class="r">⌊e<sub>i</sub>⌋</th><th class="r">partea fracționară</th><th class="r">locuri</th></tr>${pop.map((s,i)=>`<tr><td>${i+1}</td><td class="mono">${s}</td><td class="r">${f4(m.F[i])} / ${f4(m.av)} = ${f3(m.e[i])}</td><td class="r">${m.fl[i]}</td><td class="r">${f3(m.fr[i])}${m.extra[i]?' ← cea mai mare':''}</td><td class="r"><b>${m.cp[i]}</b></td></tr>`).join('')}<tr><td></td><td>Suma</td><td class="r">${f3(m.e.reduce((a,b)=>a+b,0))}</td><td class="r">${m.fl.reduce((a,b)=>a+b,0)}</td><td></td><td class="r"><b>4</b></td></tr></table></div>
+      <p style="margin-top:12px"><b>Metoda 1:</b> părțile întregi dau ${m.fl.reduce((a,b)=>a+b,0)} locuri, a rămas R = ${m.rest}. Locul rămas îl primește individul cu cea mai mare parte fracționară: <code>${pop[m.ord[0]]}</code>.</p>
+      <p><b>Metoda 2 (același rezultat pe altă cale).</b> Așezăm cotele la rând pe segmentul [0; 1): limitele bucăților ${m.cum.map(f4).join(', ')} (fiecare = precedenta + cota individului următor). Împărțim segmentul în 4 părți egale și luăm mijloacele lor: 0.125, 0.375, 0.625, 0.875. Vedem pe bucata cui a căzut fiecare mijloc: ${m.ptr.map((r,j)=>{const i=m.sus[j];return `${fmt(r,3)} → <code>${pop[i]}</code>`;}).join(', ')}. Bucata lungă <code>0110</code> a acoperit două mijloace, cea scurtă <code>0100</code> — niciunul.</p>
+      <p><b>Părinți:</b> ${par.map(s=>'<code>'+s+'</code>').join(', ')}.</p>
+      <p>Verificăm afirmația 3 din §4: fitness-ul mediu al părinților = (${m.parents.map(i=>f4(m.F[i])).join(' + ')}) / 4 = ${f4(parAvg)}. Este mai mare decât fitness-ul mediu al întregii populații ${f4(m.av)}.</p>
+      ${why('De ce acest pas.','Selecția este o „presiune”: genele indivizilor buni se înmulțesc, genele celor slabi dispar. Aici <code>0100</code> cu f = '+f4(m.F[0])+' nu a lăsat urmași.')}`},
+    {t:'4. Perechi',h:`
+      <p>Regula: scriem părinții în ordine și punem în pereche <b>primul cu ultimul, al doilea cu penultimul</b>. Această regulă desparte cele două copii ale aceluiași individ în perechi diferite.</p>
+      <div class="formula">perechea 1 = (${pairs[0][0]}, ${pairs[0][1]}),   perechea 2 = (${pairs[1][0]}, ${pairs[1][1]})</div>
+      ${why('De ce despărțim indivizii identici.','Încrucișarea lui <code>0110</code> cu <code>0110</code> dă din nou <code>0110</code> la orice punct de tăiere. O astfel de pereche nu creează nimic nou.')}`},
+    {t:'5. Încrucișare',h:`
+      <p>Regula: pentru fiecare pereche luăm numărul r. Dacă r &lt; p<sub>c</sub> = 0.8, încrucișăm în punctul k, altfel urmașii copiază părinții. Formulele pentru punctul k:</p>
+      <div class="formula">urmașul 1 = A[1..k] + B[k+1..L],   urmașul 2 = B[1..k] + A[k+1..L]</div>
+      <p>Câte perechi se încrucișează în medie: (N/2) · p<sub>c</sub> = 2 · 0.8 = 1.6. Punctul k se alege din {1, 2, 3}, fiecare cu probabilitatea 1/3.</p>
+      ${cxi.map((c,n)=>`<p><b>Perechea ${n+1}: ${c.A} × ${c.B}.</b> r = ${c.r} ${c.yes?`&lt; 0.8 → încrucișăm, k = ${c.k}.`:`≥ 0.8 → nu încrucișăm, urmașii = copiile părinților.`}</p>${c.yes?`<div class="row" style="gap:10px;margin-bottom:12px">${bitsCut(c.A,c.k,'')} <span>×</span> ${bitsCut(c.B,c.k,'b')} <span>→</span> ${bitsSm(c.A.slice(0,c.k))}${bitsSm(c.B.slice(c.k),'b')} <span>și</span> ${bitsSm(c.B.slice(0,c.k),'b')}${bitsSm(c.A.slice(c.k))}</div>`:''}<p>Urmași: <code>${c.c[0]}</code> (f = ${f4(fx(c.c[0]))}) și <code>${c.c[1]}</code> (f = ${f4(fx(c.c[1]))}).</p>`).join('')}
+      ${why('Momentul-cheie al exemplului.','„Capul” <code>011</code> de la <code>0110</code> și ultimul bit <code>1</code> de la <code>0001</code> au dat <code>0111</code>, f = '+f4(fx('0111'))+'. Niciunul dintre părinți nu era așa, iar urmașul s-a dovedit cel mai bun punct dintre toate cele 16. Pentru asta este nevoie de încrucișare.')}`},
+    {t:'6. Mutație',h:`
+      <p>Regula: fiecare dintre cei N · L = 16 biți se inversează dacă numărul lui r &lt; p<sub>m</sub> = 0.05.</p>
+      <div class="thm"><div class="th">Matematica mutației</div>
+        <p>Numărul de mutații pe generație este numărul de „succese” în 16 încercări independente cu probabilitatea 0.05. De aceea:</p>
+        <div class="formula" style="margin:4px 0">E[mutații] = N · L · p<sub>m</sub> = 16 · 0.05 = 0.8</div>
+        <div class="formula" style="margin:4px 0">P(cromozom fără mutații) = (1 − p<sub>m</sub>)<sup>L</sup> = 0.95<sup>4</sup> = ${f4(Math.pow(.95,4))}</div>
+        <div class="formula" style="margin:4px 0">P(nicio mutație în generație) = 0.95<sup>16</sup> = ${f4(Math.pow(.95,16))}</div>
+        <p style="margin:0">Adică în aproximativ 44% din generații nu există nicio mutație, iar în celelalte cel mai des este una.</p>
+      </div>
+      <p>În enunț: din 16 numere doar unul este mai mic decât 0.05 — r = ${mut.r} la individul nr. ${mut.child+1}, bitul ${mut.bit+1}.</p>
+      <div class="row" style="gap:10px;margin-bottom:10px">${bitsSm(before)} <span>→</span> ${bitsSm(kids[mut.child])} <span class="kv">bitul ${mut.bit+1}: ${old} → ${arr[mut.bit]}</span></div>
+      <p>f: ${f4(fx(before))} → ${f4(nfit[mut.child])}. Aici mutația a ajutat, dar mai des o schimbare aleatoare strică un individ bun.</p>
+      ${why('De ce acest pas.','Mutația aduce ceea ce nu a avut niciun părinte. Fără ea populația poate pierde pentru totdeauna bitul necesar.')}`},
+    {t:'7. Rezultatul trecerii',h:`
+      <p><b>Populația nouă (generația 2):</b></p>
+      ${popTbl(kids,nfit,best1)}
+      <div class="tbl-wrap" style="margin-top:12px"><table><tr><th></th><th class="r">f<sub>max</sub></th><th class="r">f<sub>min</sub></th><th class="r">f̄</th></tr><tr><td>Generația 1</td><td class="r">${f4(s0.mx)}</td><td class="r">${f4(s0.mn)}</td><td class="r">${f4(s0.av)}</td></tr><tr class="hl"><td>Generația 2</td><td class="r">${f4(s1.mx)}</td><td class="r">${f4(s1.mn)}</td><td class="r">${f4(s1.av)}</td></tr></table></div>
+      <canvas class="plot" id="exPlot" style="margin-top:12px"></canvas>
+      <p class="muted" style="font-size:14px">Cercurile — generația 1, punctele pline — generația 2.</p>
+      <p><b>Cel mai bun din toată rularea după trecerea 1:</b> <code>${kids[best1]}</code>, x = ${fmt(parseInt(kids[best1],2)/B)}, f = ${f4(s1.mx)}. Căutarea exhaustivă a celor 16 valori dă maximul ${f4(allF[gB])} la <code>${toBits(gB)}</code>: ${toBits(gB)===kids[best1]?'coincide':'încă nu coincide'}.</p>
+      <h3>Ce urmează: începutul trecerii 2</h3>
+      <p>Repetăm pașii cu populația nouă. f̄ = ${f4(m2.av)}, numărul așteptat de copii e<sub>i</sub> = f<sub>i</sub> / ${f4(m2.av)}:</p>
+      <div class="tbl-wrap"><table><tr><th>Cromozom</th><th class="r">f</th><th class="r">e</th><th class="r">locuri</th></tr>${kids.map((s,i)=>`<tr><td class="mono">${s}</td><td class="r">${f4(m2.F[i])}</td><td class="r">${f3(m2.e[i])}</td><td class="r">${m2.cp[i]}</td></tr>`).join('')}</table></div>
+      <p style="margin-top:10px">Toate e sunt aproape de 1, de aceea fiecare individ primește câte un loc. Dispersia a scăzut de la ${f4(m.D)} la ${f4(m2.D)}: indivizii au devenit asemănători, iar selecția aproape a încetat să-i deosebească (afirmația 3). Mai departe progresul depinde în principal de încrucișare și mutație.</p>
+      ${why('Câte treceri mai sunt.','Am luat G = 30. Repetăm pașii 1–6 încă de 29 de ori și după fiecare trecere actualizăm f<sub>best</sub>. Răspunsul va fi cel mai bun individ din toate cele 30 de treceri. Cum arată asta în întregime, se vede în secțiunea următoare.')}`,after:()=>drawFunction($('#exPlot'),fA,[...pop.map(s=>({b:parseInt(s,2),hollow:true,color:css('--muted'),r:8})),...kids.map(s=>({b:parseInt(s,2),color:css('--accent'),r:6}))])}
+  ];
+  const last=steps.length-1;
+  let cur=0,all=false;const nav=$('#stepsNav'),box=$('#steps');
+  box.innerHTML=steps.map((s,i)=>`<div class="step" data-i="${i}"><h3 style="margin-top:0">${s.t}</h3>${s.h}</div>`).join('');
+  nav.innerHTML=steps.map((s,i)=>`<button type="button" data-i="${i}">${s.t}</button>`).join('');
+  function show(){
+    $$('#steps .step').forEach((el,i)=>el.classList.toggle('show',all||i===cur));
+    $$('#stepsNav button').forEach((b,i)=>{b.classList.toggle('on',!all&&i===cur);b.classList.toggle('done',i<cur);});
+    $('#exStand').classList.toggle('all-steps',all);
+    $('#stepAll').textContent=all?'Mod pas cu pas':'Arată toți pașii';
+    $('#stepNext').disabled=cur===last&&!all;
+    if(all||cur===last)requestAnimationFrame(steps[last].after);
+  }
+  $$('#stepsNav button').forEach(b=>b.addEventListener('click',()=>{all=false;cur=+b.dataset.i;show();}));
+  $('#stepNext').addEventListener('click',()=>{all=false;if(cur<last)cur++;show();});
+  $('#stepPrev').addEventListener('click',()=>{all=false;if(cur>0)cur--;show();});
+  $('#stepAll').addEventListener('click',()=>{all=!all;show();});
+  show();
+  window.__exRedraw=()=>{if(all||cur===last)steps[last].after();};
+})();
+$('#ansBtn').addEventListener('click',()=>{
+  const a=$('#ans1').value.trim(),b=$('#ans2').value.trim();const ok=(a==='0010'&&b==='0100')||(a==='0100'&&b==='0010');
+  $('#ansFb').className='fb '+(ok?'ok':'no');
+  $('#ansFb').innerHTML=ok?'Corect: 00|00 × 01|10 → 00 + 10 = <b>0010</b> și 01 + 00 = <b>0100</b>. Ambii urmași (f ≈ 1.026 și 0.257) sunt mai slabi decât părinții (1.500 și 1.535): încrucișarea poate și strica cromozomii buni. De aceea există elitismul.':(/^[01]{4}$/.test(a)&&/^[01]{4}$/.test(b)?'Încă nu. Tăiați ambii părinți după al doilea bit și schimbați cozile între ele.':'Introduceți două șiruri de câte 4 simboluri din 0 și 1.');
+});
+
+/* ---------- full run ---------- */
+(function(){
+  const G=30,FR=runGA({N:4,pc:.8,pm:.05,G,f:fA,seed:80,elitism:false,sel:"copies"});
+  const gens=FR.gens;const fv=Array.from({length:16},(_,b)=>fA(b/B));const gmax=Math.max(...fv),gStar=toBits(fv.indexOf(gmax));
+  const firstFound=gens.findIndex(g=>g.pop.includes(gStar));
+  let gi=0,timer=null;
+  const fxs=s=>fA(parseInt(s,2)/B);
+  const seg=(s,k,cls)=>'<span class="chrom">'+(k?bitsSm(s.slice(0,k),cls)+'<span class="cutline"></span>'+bitsSm(s.slice(k),cls):bitsSm(s,cls))+'</span>';
+  const ch=h=>'<span class="chrom">'+h+'</span>';
+  function origin(i){ // origin of individual i in generation gi (from operators of gi-1)
+    const pg=gens[gi-1];if(!pg)return '';const pr=pg.pairs[Math.floor(i/2)],second=i%2===1;
+    const parent=second?pg.pop[pr.ib]:pg.pop[pr.ia];
+    const m=pg.muts.filter(x=>x.k===i);
+    let t=pr.cx&&pg.pop[pr.ia]===pg.pop[pr.ib]?`încrucișarea unor părinți identici ${parent} × ${parent} (nu schimbă nimic)`:pr.cx?`încrucișarea perechii ${Math.floor(i/2)+1} (k = ${pr.k}) a părinților ${pg.pop[pr.ia]} și ${pg.pop[pr.ib]}`:`copia părintelui ${parent} (încrucișarea nu s-a produs)`;
+    if(m.length)t+=`, apoi mutația bitului ${m.map(x=>x.j+1).join(', ')}`;
+    return t;
+  }
+  function render(){
+    const g=gens[gi],prev=gens[gi-1];
+    $('#frGen').textContent=`Generația ${gi+1} / ${G}`;$('#frSlider').value=gi+1;
+    const cnt={};g.pop.forEach(s=>{cnt[s]=(cnt[s]||0)+1;});
+    const marks=[];if(prev){const pc={};prev.pop.forEach(s=>{pc[s]=(pc[s]||0)+1;});Object.entries(pc).forEach(([s,c])=>marks.push({b:parseInt(s,2),hollow:true,color:css('--muted'),r:7+c*2}));}
+    Object.entries(cnt).forEach(([s,c])=>marks.push({b:parseInt(s,2),r:4+c*2,color:css('--accent'),label:c>1?`${s} ×${c}`:s}));
+    drawFunction($('#frPlot'),fA,marks);
+    $('#frPop').innerHTML='<tr><th>Nr.</th><th>Cromozom</th><th class="r">b</th><th class="r">x</th><th class="r">fitness</th>'+(g.p?'<th class="r">p</th>':'')+'</tr>'+g.pop.map((s,i)=>`<tr class="${i===g.bestIdx?'hl':''}"><td>${i+1}</td><td>${bitsSm(s)}${s===gStar?' <span style="color:var(--s3)">★</span>':''}</td><td class="r">${parseInt(s,2)}</td><td class="r">${fmt(parseInt(s,2)/B)}</td><td class="r">${fmt(g.fit[i])}</td>${g.p?`<td class="r">${fmt(g.p[i],3)}</td>`:''}</tr>`).join('');
+    const d=v=>prev?` <span class="chip ${v>1e-9?'good':v<-1e-9?'bad':''}">${v>0?'+':''}${fmt(v,3)}</span>`:'';
+    $('#frStats').innerHTML=`max = ${fmt(g.max)}${prev?d(g.max-prev.max):''}<br>avg = ${fmt(g.avg)}${prev?d(g.avg-prev.avg):''}<br>min = ${fmt(g.min)} · cromozomi diferiți: ${g.uniq} din 4`;
+    // commentary
+    const notes=[];
+    if(gi===0)notes.push(`<b>Start.</b> Patru cromozomi aleatori. Cel mai bun dintre ei, ${g.pop[g.bestIdx]} (f = ${fmt(g.max,3)}), e departe de maximul ${gStar} (f = ${fmt(gmax,3)}). Niciun individ nu se află lângă vârful din zona x ≈ 0.47.`);
+    else{
+      if(g.max>prev.max+1e-9)notes.push(`<b>Maximul a crescut</b> de la ${fmt(prev.max,3)} la ${fmt(g.max,3)}. Cel mai bun individ, nr. ${g.bestIdx+1} (${g.pop[g.bestIdx]}), s-a obținut astfel: ${origin(g.bestIdx)}.`);
+      else if(g.max<prev.max-1e-9)notes.push(`<b>Maximul a scăzut</b> de la ${fmt(prev.max,3)} la ${fmt(g.max,3)}. Cel mai bun individ al generației precedente (${prev.pop[prev.bestIdx]}) nu a ajuns la urmași fără modificări. Nu există elitism, deci AG nu îl protejează. Cea mai bună valoare găsită rămâne oricum înregistrată în „cel mai bun din toată rularea”.`);
+      else notes.push(`<b>Maximul nu s-a schimbat</b> (${fmt(g.max,3)}). Fitness-ul mediu ${g.avg>prev.avg+1e-9?'a crescut: selecția a înmulțit indivizii buni':g.avg<prev.avg-1e-9?'a scăzut: operatorii au produs urmași slabi':'nu s-a schimbat'}.`);
+    }
+    if(gi===firstFound)notes.push(`<b style="color:var(--s3)">★ Pentru prima dată a fost găsit maximul global ${gStar}</b>, x = ${fmt(parseInt(gStar,2)/B)}, f = ${fmt(gmax)}.`+' Proveniență: '+origin(g.pop.indexOf(gStar))+'.');
+    if(g.uniq===1)notes.push('Toți indivizii sunt identici: diversitatea a dispărut, încrucișarea nu va aduce nimic nou. Doar mutația poate ajuta la ieșirea din acest punct.');
+    if(prev&&prev.muts.length)notes.push(`Mutații la trecerea din generația ${gi}: ${prev.muts.length} (în medie se așteaptă 0.8).`);
+    $('#frNote').innerHTML=notes.join('<br>');
+    // operators
+    if(g.pairs){
+      $('#frOpsTitle').textContent=`Operatori: generația ${gi+1} → generația ${gi+2}`;
+      const mutSet={};g.muts.forEach(m=>{(mutSet[m.k]=mutSet[m.k]||[]).push(m.j);});
+      let h=`<p style="font-size:15px">Selecție (metoda 1): e = f / f̄ = [${g.e.map(v=>fmt(v,3)).join(', ')}]${g.shift?' (cu deplasare)':''} → locuri [${g.cp.join(', ')}]. Perechi: primul părinte cu ultimul, al doilea cu penultimul.</p>`;
+      g.pairs.forEach((pr,n)=>{const A=g.pop[pr.ia],Bp=g.pop[pr.ib];
+        h+=`<div class="pairrow"><span class="lbl">Perechea ${n+1}</span>${seg(A,pr.k,'')}<span class="op">individul nr. ${pr.ia+1}</span><span class="op">×</span>${seg(Bp,pr.k,'b')}<span class="op">individul nr. ${pr.ib+1}</span><span class="op">→</span>`+
+        (pr.cx?`${ch(bitsSm(A.slice(0,pr.k))+bitsSm(Bp.slice(pr.k),'b'))} <span class="op">și</span> ${ch(bitsSm(Bp.slice(0,pr.k),'b')+bitsSm(A.slice(pr.k)))}<span class="chip good">încrucișare, k = ${pr.k} (r = ${fmt(pr.rc,2)} &lt; 0.8)</span>`:`${ch(bitsSm(A))} <span class="op">și</span> ${ch(bitsSm(Bp,'b'))}<span class="chip">fără încrucișare (r = ${fmt(pr.rc,2)} ≥ 0.8)</span>`)+`</div>`;});
+      h+=`<div class="pairrow"><span class="lbl">Mutație</span>${g.muts.length?g.muts.map(m=>`<span class="kv" style="font-size:14px">Mutație la individul nr. ${m.k+1}, bitul ${m.j+1} schimbat din ${m.from} în ${m.to}</span>`).join('<br>'):'<span class="op">niciunul dintre cele 16 numere aleatoare nu a fost mai mic decât 0.05, mutații nu sunt</span>'}</div>`;
+      h+=`<div class="pairrow"><span class="lbl">Rezultat</span>${g.next.map((s,i)=>'<span class="bits">'+[...s].map((c,j)=>`<span class="bit sm ${c==='1'?'one':''} ${(mutSet[i]||[]).includes(j)?'mut':''}">${c}</span>`).join('')+'</span>').join(' ')}<span class="op">← generația ${gi+2} (chenar roșu = bit mutat)</span></div>`;
+      $('#frOps').innerHTML=h;
+    }else{
+      $('#frOpsTitle').textContent='Rezultatul rulării complete';
+      const b=FR.best;
+      $('#frOps').innerHTML=`<div class="result"><div><div class="k">Cel mai bun cromozom</div><div class="v">${b.s}</div></div><div><div class="k">x*</div><div class="v">${fmt(parseInt(b.s,2)/B)}</div></div><div><div class="k">f(x*)</div><div class="v">${fmt(b.f)}</div></div><div><div class="k">Găsit prima dată</div><div class="v">gen. ${b.gen}</div></div></div><p>Ultima generație: ${g.pop.map(s=>bitsSm(s)).join(' ')}. Populația a convers spre maxim: ${g.pop.filter(s=>s===gStar).length} din 4 indivizi sunt egali cu ${gStar}.</p><div class="why"><b>Verificare prin căutare exhaustivă.</b> Dintre toate cele 16 valori, maximul f = ${fmt(gmax)} se atinge la ${gStar} (x = 7/15 ≈ 0.4667). Răspunsul AG coincide. Pe axa continuă, maximul adevărat se află puțin mai încolo, dar 4 biți dau doar pasul 1/15, deci un răspuns mai precis nu e posibil.</div>`;
+    }
+    drawLines($('#frChart'),[{values:gens.map(x=>x.min),color:css('--muted'),width:1.5},{values:gens.map(x=>x.avg),color:css('--accent-2')},{values:gens.map(x=>x.max),color:css('--accent'),width:2.4,area:true},{values:gens.map(x=>x.bestEver),color:css('--s3'),dash:[5,4],width:1.8}],{marker:gi});
+    $('#frLog').textContent=g.log||'';
+  }
+  const go=i=>{gi=clamp(i,0,G-1);render();};
+  const stop=()=>{if(timer){clearInterval(timer);timer=null;$('#frPlay').textContent='▶ Redă';}};
+  $('#frFirst').addEventListener('click',()=>{stop();go(0);});
+  $('#frLast').addEventListener('click',()=>{stop();go(G-1);});
+  $('#frPrev').addEventListener('click',()=>{stop();go(gi-1);});
+  $('#frNext').addEventListener('click',()=>{stop();go(gi+1);});
+  $('#frSlider').addEventListener('input',e=>{stop();go(+e.target.value-1);});
+  $('#frPlay').addEventListener('click',()=>{if(timer){stop();return;}if(gi>=G-1)gi=-1;$('#frPlay').textContent='❚❚ Pauză';timer=setInterval(()=>{if(gi>=G-1){stop();return;}go(gi+1);},1600);});
+  render();window.__frRedraw=render;
+})();
+
+/* ---------- simulator ---------- */
+const FUNCS=[fA,x=>1+0.5*(1-x)*Math.sin(5*Math.PI*x)+0.4*x,x=>0.6*Math.sin(3*Math.PI*x)+x];
+function parseExpr(src){
+  let e=src.replace(/\^/g,'**').replace(/\bln\s*\(/g,'log(').replace(/π/g,'pi').replace(/\bpi\b/gi,'PI').replace(/\be\b(?!\s*\()/g,'E');
+  if(/[^0-9x+\-*/().,\sA-Za-z_]/.test(e))throw new Error('Simboluri nepermise în formulă');
+  const allowed=new Set(['x','sin','cos','tan','exp','sqrt','abs','log','PI','E','pow','min','max','atan','asin','acos','sinh','cosh','tanh','log10','floor','ceil']);
+  (e.match(/[A-Za-z_]\w*/g)||[]).forEach(w=>{if(!allowed.has(w))throw new Error('Nume necunoscut: '+w);});
+  e=e.replace(/\b(sin|cos|tan|exp|sqrt|abs|log|pow|min|max|atan|asin|acos|sinh|cosh|tanh|log10|floor|ceil|PI|E)\b/g,'Math.$1');
+  const fn=new Function('x','return ('+e+');');
+  for(let b=0;b<=B;b++){const v=fn(b/B);if(!Number.isFinite(v))throw new Error('f(x) nu este definită pentru x = '+fmt(b/B));}
+  return fn;
+}
+$('#sF').addEventListener('change',e=>{$('#exprWrap').style.display=e.target.value==='custom'?'flex':'none';});
+$$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const [pc,pm]=b.dataset.preset.split(',');$('#sPc').value=pc;$('#sPm').value=pm;$('#sN').value=4;$('#sG').value=30;runSim();}));
+$$('.tabs button').forEach(b=>b.addEventListener('click',()=>{$$('.tabs button').forEach(x=>x.classList.toggle('on',x===b));$$('.tabpane').forEach(p=>p.classList.toggle('on',p.id===b.dataset.tab));if(b.dataset.tab==='tPlot')drawGen();}));
+let simRes=null,simF=fA;
+function runSim(){
+  $('#simErr').textContent='';
+  let N=Math.round(+$('#sN').value),pc=+$('#sPc').value,pm=+$('#sPm').value,G=Math.round(+$('#sG').value),seed=Math.round(+$('#sSeed').value)||1;
+  const errs=[];if(!(N>=2&&N<=20))errs.push('N trebuie să fie între 2 și 20');if(!(pc>=0&&pc<=1))errs.push('pc — între 0 și 1');if(!(pm>=0&&pm<=1))errs.push('pm — între 0 și 1');if(!(G>=30))errs.push('G cel puțin 30');
+  if(G>500)errs.push('G cel mult 500');
+  if(errs.length){$('#simErr').textContent='Corectați: '+errs.join('; ')+'.';return;}
+  const fv=$('#sF').value;
+  try{simF=fv==='custom'?parseExpr($('#sExpr').value):FUNCS[+fv];}catch(e){$('#simErr').textContent=e.message+'. Exemplu: exp(-x)*sin(5*pi*x)';return;}
+  simRes=runGA({N,pc,pm,G,f:simF,seed,elitism:$('#sElite').checked,sel:$('#sSel').value});
+  const g=simRes.gens,last=g[g.length-1];
+  const allF=Array.from({length:16},(_,b)=>simF(b/B)),gmax=Math.max(...allF),gb=allF.indexOf(gmax);
+  const lb=last.pop[last.bestIdx];
+  const found=Math.abs(simRes.best.f-gmax)<1e-12;
+  $('#simResult').innerHTML=`<div><div class="k">Cel mai bun cromozom din rulare</div><div class="v">${simRes.best.s}</div></div><div><div class="k">x*</div><div class="v">${fmt(parseInt(simRes.best.s,2)/B)}</div></div><div><div class="k">f(x*)</div><div class="v">${fmt(simRes.best.f)}</div></div><div><div class="k">Găsit prima dată</div><div class="v">gen. ${simRes.best.gen}</div></div><div><div class="k">Cel mai bun din ultima gen.</div><div class="v">${lb} · ${fmt(last.max,3)}</div></div><div><div class="k">Căutare exhaustivă, 16 puncte</div><div class="v">${toBits(gb)} · ${fmt(gmax,3)} ${found?'<span class="chip good">coincide</span>':'<span class="chip bad">negăsit</span>'}</div></div>`;
+  drawSimChart();
+  $('#simLog').textContent=`Parametri: N=${N}, L=4, pc=${pc}, pm=${pm}, G=${G}, seed=${seed}, elitism=${$('#sElite').checked?'da':'nu'}\nSelecție: ${$('#sSel').value==='sus'?'metoda 2 (pas egal)':'metoda 1 (partea întreagă + restul)'}, perechi „primul cu ultimul”; încrucișare: într-un punct (punctul 1..3); mutație: bit cu bit.\n\n`+simRes.log+`\n════════ Rezultat ════════\nCel mai bun cromozom: ${simRes.best.s} (b=${parseInt(simRes.best.s,2)}), x* = ${fmt(parseInt(simRes.best.s,2)/B)}, f(x*) = ${fmt(simRes.best.f)}, găsit în generația ${simRes.best.gen}`;
+  $('#evoTable').innerHTML='<tr><th>Generația</th><th>Nr. individ</th><th>Cromozom</th><th class="r">Zecimal</th><th class="r">x</th><th class="r">f(x)</th></tr>'+g.map((gg,gi)=>gg.pop.map((s,i)=>`<tr class="${i===0?'genstart':''} ${i===gg.bestIdx?'hl':''}"><td>${i===0?gi+1:''}</td><td>${i+1}</td><td class="mono">${s}</td><td class="r">${parseInt(s,2)}</td><td class="r">${fmt(parseInt(s,2)/B)}</td><td class="r">${fmt(gg.fit[i])}</td></tr>`).join('')).join('');
+  $('#statTable').innerHTML='<tr><th>Generația</th><th class="r">Fitness min.</th><th class="r">Mediu</th><th class="r">Max.</th><th class="r">Cel mai bun din rulare</th><th class="r">Cromozomi diferiți</th></tr>'+g.map((gg,i)=>`<tr><td>${i+1}</td><td class="r">${fmt(gg.min)}</td><td class="r">${fmt(gg.avg)}</td><td class="r">${fmt(gg.max)}</td><td class="r">${fmt(gg.bestEver)}</td><td class="r">${gg.uniq}</td></tr>`).join('');
+  $('#genSlider').max=G;if(+$('#genSlider').value>G)$('#genSlider').value=1;drawGen();
+}
+function drawSimChart(){if(!simRes)return;const g=simRes.gens;drawLines($('#simChart'),[{values:g.map(x=>x.min),color:css('--muted'),width:1.5},{values:g.map(x=>x.avg),color:css('--accent-2')},{values:g.map(x=>x.max),color:css('--accent'),width:2.4,area:true},{values:g.map(x=>x.bestEver),color:css('--s3'),dash:[5,4],width:1.8}]);}
+function drawGen(){if(!simRes)return;const gi=+$('#genSlider').value-1;$('#genVal').textContent=gi+1;const gg=simRes.gens[gi];if(!$('#tPlot').classList.contains('on'))return;
+  const cnt={};gg.pop.forEach(s=>{cnt[s]=(cnt[s]||0)+1;});
+  drawFunction($('#genPlot'),simF,Object.entries(cnt).map(([s,c])=>({b:parseInt(s,2),r:5+c*2,label:c>1?`${s} ×${c}`:s,color:css('--accent')})));}
+$('#genSlider').addEventListener('input',drawGen);
+let playT=null;
+$('#genPlay').addEventListener('click',()=>{if(playT){clearInterval(playT);playT=null;$('#genPlay').textContent='▶ Redă';return;}const s=$('#genSlider');if(+s.value>=+s.max)s.value=1;$('#genPlay').textContent='❚❚ Pauză';playT=setInterval(()=>{if(+s.value>=+s.max){clearInterval(playT);playT=null;$('#genPlay').textContent='▶ Redă';return;}s.value=+s.value+1;drawGen();},350);});
+$('#runBtn').addEventListener('click',runSim);
+$('#copyLog').addEventListener('click',()=>{const t=$('#simLog').textContent;const ok=()=>{$('#copyFb').textContent='Jurnal copiat';};
+  try{navigator.clipboard.writeText(t).then(ok,()=>{selectLog();});}catch(e){selectLog();}});
+function selectLog(){const r=document.createRange();r.selectNodeContents($('#simLog'));const s=window.getSelection();s.removeAllRanges();s.addRange(r);$('#copyFb').textContent='Jurnalul este selectat, apăsați Ctrl+C';}
+runSim();
+
+/* ---------- experiments ---------- */
+let cfgs=[{N:4,pc:.8,pm:.05,G:30},{N:4,pc:.4,pm:.01,G:30},{N:4,pc:.9,pm:.15,G:30}];
+const sCol=i=>[css('--accent'),css('--accent-2'),css('--s3')][i];
+function renderCfg(){
+  $('#cfgTable').innerHTML='<tr><th>Experiment</th><th>N</th><th>L</th><th>p<sub>c</sub></th><th>p<sub>m</sub></th><th>G</th></tr>'+cfgs.map((c,i)=>`<tr><td><span style="color:${sCol(i)}">■</span> ${i+1}</td>${['N','L','pc','pm','G'].map(k=>k==='L'?'<td>4</td>':`<td><input type="number" id="cfg-${i}-${k}" class="txt" style="width:80px" value="${c[k]}" step="${k==='N'||k==='G'?1:0.01}" aria-label="${k} experimentul ${i+1}"></td>`).join('')}</tr>`).join('');
+}
+renderCfg();
+let expRes=null;
+function runExp(){
+  const R=300;const allF=Array.from({length:16},(_,b)=>fA(b/B)),gmax=Math.max(...allF);
+  const el=$('#eElite').checked;
+  cfgs=cfgs.map((c,i)=>{const g=k=>+$(`#cfg-${i}-${k}`).value;return{N:clamp(Math.round(g('N'))||4,2,20),pc:clamp(g('pc'),0,1),pm:clamp(g('pm'),0,1),G:clamp(Math.round(g('G'))||30,30,300)};});
+  renderCfg();
+  expRes=cfgs.map(c=>{
+    const succ=new Array(c.G).fill(0),avg=new Array(c.G).fill(0);let finalMax=0,finalSucc=0,endFound=0,uniq=0,firstGen=0,firstN=0,lost=0;
+    for(let r=1;r<=R;r++){const res=runGA({...c,f:fA,seed:r*7919+13,elitism:el,sel:$('#eSel').value,log:false});
+      res.gens.forEach((g,i)=>{if(Math.abs(g.bestEver-gmax)<1e-12)succ[i]++;avg[i]+=g.avg;});
+      const last=res.gens[c.G-1];finalMax+=last.max;uniq+=last.uniq;
+      const f=Math.abs(res.best.f-gmax)<1e-12;if(f){endFound++;firstGen+=res.best.gen;firstN++;if(Math.abs(last.max-gmax)>1e-12)lost++;}
+      if(Math.abs(last.max-gmax)<1e-12)finalSucc++;}
+    return{c,succ:succ.map(v=>100*v/R),avg:avg.map(v=>v/R),found:100*endFound/R,finalSucc:100*finalSucc/R,finalMax:finalMax/R,uniq:uniq/R,firstGen:firstN?firstGen/firstN:NaN,lost:endFound?100*lost/endFound:0};
+  });
+  drawExp();
+  $('#expTable').innerHTML='<tr><th>Exp.</th><th>p<sub>c</sub> / p<sub>m</sub></th><th class="r">Maxim găsit măcar o dată</th><th class="r">Maximul e în ultima gen.</th><th class="r">Gen. medie a găsirii</th><th class="r">Max mediu în ultima gen.</th><th class="r">Cromozomi diferiți la final</th></tr>'+expRes.map((e,i)=>`<tr><td><span style="color:${sCol(i)}">■</span> ${i+1}</td><td class="mono">N=${e.c.N}, ${e.c.pc} / ${e.c.pm}</td><td class="r">${e.found.toFixed(0)}%</td><td class="r">${e.finalSucc.toFixed(0)}%</td><td class="r">${fmt(e.firstGen,1)}</td><td class="r">${fmt(e.finalMax,3)}</td><td class="r">${fmt(e.uniq,2)} din ${e.c.N}</td></tr>`).join('');
+}
+function drawExp(){if(!expRes)return;
+  drawLines($('#expChart1'),expRes.map((e,i)=>({values:e.succ,color:sCol(i)})),{ymin:0,ymax:100,yfmt:v=>v.toFixed(0)});
+  drawLines($('#expChart2'),expRes.map((e,i)=>({values:e.avg,color:sCol(i)})));
+  $('#expLegend').innerHTML=expRes.map((e,i)=>`<span><i style="background:${sCol(i)}"></i>Exp. ${i+1}: p<sub>c</sub>=${e.c.pc}, p<sub>m</sub>=${e.c.pm}, N=${e.c.N}</span>`).join('')+'<span>axa X — numărul generației</span>';}
+$('#expBtn').addEventListener('click',runExp);
+runExp();
+
+/* ---------- final test ---------- */
+const FQ=[
+ {q:'Câte valori diferite ale lui x pot fi codificate cu un cromozom de lungime L = 4?',o:['4','8','16','15'],a:2,e:'2⁴ = 16 combinații: de la 0000 la 1111.'},
+ {q:'Cromozomul 0110 corespunde lui x =',o:['0.375','0.4','0.6','6'],a:1,e:'0110₂ = 6, x = 6/15 = 0.4. Valoarea 0.375 s-ar obține la împărțirea la 16.'},
+ {q:'N = 4, L = 4, pm = 0.05. Numărul așteptat de biți mutați pe generație:',o:['0.05','0.2','0.8','4'],a:2,e:'16 biți · 0.05 = 0.8.'},
+ {q:'Ce se întâmplă la pc = 0?',o:['Algoritmul nu funcționează deloc','Urmașii copiază părinții, iar ceva nou apare doar prin mutație','Fiecare pereche se încrucișează obligatoriu','Se dezactivează selecția'],a:1,e:'Selecția funcționează în continuare, dar combinații noi de gene creează doar mutația.'},
+ {q:'N = 4, evaluările indivizilor: 1, 1, 2, 4. Câte locuri primește individul cu f = 2 prin metoda 1?',o:['0','2','1','4'],a:2,e:'f̄ = 8 / 4 = 2, e = 2 / 2 = 1: exact un loc.'},
+ {q:'Părinții 0111 și 1000, punctul de încrucișare k = 3. Urmașii:',o:['0110 și 1001','0000 și 1111','0111 și 1000','1111 și 0000'],a:0,e:'011|1 × 100|0 → 011+0 = 0110 și 100+1 = 1001.'},
+ {q:'Ce se întâmplă dacă setăm un pm foarte mare, de exemplu 0.5?',o:['Convergența devine mai rapidă și mai sigură','Căutarea devine aproape o încercare la întâmplare','Populația devine identică','Nu se schimbă nimic'],a:1,e:'La pm = 0.5 fiecare bit devine o „monedă”: urmașul aproape nu depinde de părinți, iar selecția își pierde sensul.'},
+ {q:'De ce poate scădea fitness-ul maxim de la o generație la alta?',o:['Este o eroare în program','Cel mai bun individ poate să nu ajungă printre urmași sau să fie stricat de încrucișare și mutație (fără elitism)','Din cauza împărțirii la 15','Se întâmplă doar la pc = 1'],a:1,e:'AG clasic fără elitism nu garantează nimic celui mai bun individ. Elitismul îl transferă în generația următoare fără modificări.'},
+ {q:'f(x) ia valori negative. Ce facem la selecția proporțională cu fitness-ul?',o:['Nimic, selecția funcționează','Luăm modulul |f|','Deplasăm fitness-ul: f − f_min + ε','Înlocuim valorile negative cu 0 și eliminăm acești indivizi'],a:2,e:'Modulul denaturează problema: o valoare negativă mare ar deveni „bună”. Deplasarea păstrează ordinea indivizilor.'},
+ {q:'„Convergența prematură” înseamnă situația când…',o:['Algoritmul s-a terminat înainte de G generații','Populația a devenit omogenă înainte de a fi găsit maximul global','Fitness-ul a devenit negativ','pc este mai mare decât pm'],a:1,e:'Diversitatea a dispărut, încrucișarea copiază cromozomi identici și doar mutația poate ajuta la ieșire. Tipic pentru pm mic.'}
+];
+let fqDone=0,fqOk=0;
+function renderFQ(){
+  fqDone=0;fqOk=0;
+  $('#finalQuiz').innerHTML=FQ.map((q,i)=>`<div class="quiz" data-answer="${'abcd'[q.a]}"><div class="qh">Întrebarea ${i+1} din ${FQ.length}</div><div class="q">${q.q}</div><div class="opts">${q.o.map((o,j)=>`<button type="button" data-k="${'abcd'[j]}">${o}</button>`).join('')}</div><div class="ex">${q.e}</div></div>`).join('');
+  $$('#finalQuiz .quiz').forEach(q=>bindQuiz(q,ok=>{fqDone++;if(ok)fqOk++;updFS();}));updFS();
+}
+function updFS(){const t=FQ.length;let m=`Răspunsuri date: ${fqDone} din ${t}`;if(fqDone===t){const k=fqOk/t;m=`Rezultat: ${fqOk} din ${t} · `+(k>=.9?'excelent':k>=.7?'bine, repetați secțiunile cu greșeli':'merită recitite §3–§7 și reluat exemplul');}else if(fqDone)m+=` · corecte ${fqOk}`;$('#finalScore').textContent=m;}
+$('#resetTest').addEventListener('click',()=>{scoreAll-=fqDone;scoreOk-=fqOk;updScore();renderFQ();});
+renderFQ();
+
+/* ---------- nav + progress ---------- */
+$$('#toc a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();const t=document.getElementById(a.getAttribute('href').slice(1));if(t){const y=t.getBoundingClientRect().top+window.scrollY-56;window.scrollTo({top:y,behavior:reduceMotion?'auto':'smooth'});}}));
+const secs=$$('main section');
+function onScroll(){const h=document.documentElement;const p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);$('#progress').style.width=(p*100).toFixed(1)+'%';
+  let curId=secs[0].id;secs.forEach(s=>{if(s.getBoundingClientRect().top<120)curId=s.id;});$$('#toc a').forEach(a=>{const on=a.getAttribute('href')==='#'+curId;a.classList.toggle('on',on);if(on&&a.dataset.on!=='1'){a.scrollIntoView({block:'nearest',inline:'nearest'});}a.dataset.on=on?'1':'0';});}
+window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+/* ---------- redraw on resize / theme ---------- */
+function redrawAll(){renderEnc();renderBar();drawSimChart();drawGen();drawExp();if(window.__exRedraw)window.__exRedraw();if(window.__frRedraw)window.__frRedraw();if(window.__hcRedraw)window.__hcRedraw();if(reduceMotion)heroDraw();renderCfgColors();}
+function renderCfgColors(){}
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(redrawAll,150);});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll);
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+})();
+</script>
+</body>
+</html>
