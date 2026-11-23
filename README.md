@@ -16,8 +16,8 @@ The materials are available in two languages, each in its own branch:
 
 Switch to the branch in your preferred language:
 
-git checkout ru   # Russian
-git checkout ro   # Romanian
+- git checkout ru   # Russian
+- git checkout ro   # Romanian
 
 ## Getting Started
 Clone a specific branch directly:
