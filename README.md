@@ -22,8 +22,8 @@ Switch to the branch in your preferred language:
 ## Getting Started
 Clone a specific branch directly:
 
-git clone -b ru https://github.com/<your-username>/ai_course.git
-git clone -b ro https://github.com/<your-username>/ai_course.git
+- git clone -b ru https://github.com/<your-username>/ai_course.git
+- git clone -b ro https://github.com/<your-username>/ai_course.git
 
 ## Purpose
 These materials are intended for educational use by USM students.
